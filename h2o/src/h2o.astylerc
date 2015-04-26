@@ -1,0 +1,11 @@
+style=allman
+indent=tab
+indent-switches
+indent-namespaces
+indent-labels
+indent-preproc-block
+min-conditional-indent=1
+pad-oper
+align-pointer=type
+align-reference=type
+add-brackets
