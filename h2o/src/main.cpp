@@ -7,11 +7,10 @@
 #include "items/ExpressionItem.hpp"
 #include "items/GroupItem.hpp"
 #include "../../libocean/src/BytecodeWriter.hpp"
+#include "../../libocean/src/LibOcean.hpp"
 
 /**
- * @TODO: Translators
  * @TODO: Token ID assignment, matching during Parse() by assigned ID, perhaps embed match into token?
- * @TODO: Bytecode writer
  * @TODO: Re-entrant/multi-match groups to find most exact match
  * @TODO: Significant whitespace option
  */
@@ -327,6 +326,8 @@ bool ReadString(BytecodeWriter const& writer, StringMatch const& match, int64_t&
 
 int main()
 {
+	Ocean::Install();
+
 	AddSpan("dqstring", "\"", "\"", ReadString).Escape(R"(\")").RestrictNewlines();
 	AddSpan("sqstring", "'", "'", ReadString).Escape(R"(\')").RestrictNewlines();
 	AddRegexSpan("rawstring", "R(\\[.*\\])?\"", R"("\1)", ReadString).StartHint("R");

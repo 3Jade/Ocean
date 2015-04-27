@@ -19,8 +19,8 @@ csbuild.SetIntermediateDirectory("Intermediate/{project.userData.subdir}/{projec
 def h2o():
 	@csbuild.scope(csbuild.ScopeDef.Final)
 	def FinalScope():
-		csbuild.AddLibraries("sprawl_string", "sprawl_hash", "sprawl_serialization")
-		csbuild.AddLibraryDirectories("third-party/sprawl/lib")
+		csbuild.AddLibraries("sprawl_string", "sprawl_hash", "sprawl_serialization", "sprawl_time")
+		csbuild.AddLibraryDirectories("third-party/sprawl/lib/{project.targetName}")
 
 	@csbuild.scope(csbuild.ScopeDef.All)
 	def AllScope():

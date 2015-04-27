@@ -20,10 +20,10 @@ enum class OpCode : int64_t
 	RETURN	= 0b001001, //Exit the specified function and return to previous instruction pointer location. {arg} is ignored.
 
 	//Variables
-	DECL	= 0b001010, //Create a variable. {arg} is a pointer into the strings table with the variable's name. The variable will be initialized to the value at the top of the stack /and the stack will remain unchanged/
-	LOAD	= 0b001011, //Load the contents of a variable onto the top of the stack. {arg} is a pointer into the strings table with the variable's name.
-	STORE	= 0b001100, //Store the top value of the stack into the given variable name. {arg} is a pointer into the strings table with the variable's name.
-	DEL		= 0b001101, //Remove the named variable. {arg} is a pointer into the strings table with the variable's name.
+	DECL	= 0b001010, //Create a set of variables for the current scope. {arg} is a variable count.
+	LOAD	= 0b001011, //Load the contents of a variable onto the top of the stack. {arg} is an offset from the end of the variables array.
+	STORE	= 0b001100, //Store the top value of the stack into the given variable name. {arg} is an offset from the end of the variables array.
+	DEL		= 0b001101, //Remove {arg} count of variables from the back of the variable array.
 
 	//Class functions
 	CREATE	= 0b001110, //Create an object of a non-POD type. {arg} is a pointer into the strings table with the name of the class to construct.
@@ -33,4 +33,7 @@ enum class OpCode : int64_t
 
 	//Modules
 	LOADMOD	= 0b010010, //Load the named module if it's not already loaded. {arg} is a pointer into the strings table with the module name.
+
+	//System
+	EXIT	= 0b010011, //Exit the application.
 };
