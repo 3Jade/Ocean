@@ -1,9 +1,8 @@
 #include "BytecodeWriter.hpp"
-#include "LibOcean.hpp"
 #include "Stack.hpp"
 #include <cassert>
 
-#define APPEND_OP(itemList, opCode, value) (itemList).push_back({opCode, BytecodeEntry(value)})
+#define APPEND_OP(itemList, opCode, value) (itemList).push_back({opCode, OceanValue(value)})
 
 BytecodeWriter::BytecodeWriter()
 	: m_functions()
@@ -48,6 +47,11 @@ void BytecodeWriter::Stack_Push(const sprawl::String& value)
 }
 
 void BytecodeWriter::Stack_Push(double value)
+{
+	APPEND_OP(*m_currentBuilder, OpCode::PUSH, value);
+}
+
+void BytecodeWriter::Stack_Push(OceanValue value)
 {
 	APPEND_OP(*m_currentBuilder, OpCode::PUSH, value);
 }
@@ -126,11 +130,11 @@ void BytecodeWriter::Function_Call(const sprawl::String& name)
 				Stack stack;
 				for(int i = 0; i < func.nParams; ++i)
 				{
-					stack.Push(m_currentBuilder->back().value.asValue);
+					stack.Push(OceanValue(m_currentBuilder->back().value.asInt));
 					m_currentBuilder->pop_back();
 				}
 				func.function(stack);
-				int64_t result = stack.Consume();
+				int64_t result = stack.Consume().asInt;
 				APPEND_OP(*m_currentBuilder, OpCode::PUSH, result);
 				return;
 			}
@@ -186,9 +190,9 @@ void BytecodeWriter::Exit(int64_t exitCode)
 	APPEND_OP(*m_currentBuilder, OpCode::EXIT, exitCode);
 }
 
-int64_t BytecodeWriter::GetCurrentOffset()
+BytecodeWriter::Instruction const* BytecodeWriter::GetCurrentInstruction()
 {
-	return m_currentBuilder->size();
+	return &m_currentBuilder->back();
 }
 
 sprawl::String BytecodeWriter::Finish()
@@ -197,22 +201,22 @@ sprawl::String BytecodeWriter::Finish()
 
 	unsigned char header[sizeof(int64_t)] = { 0x0C, 0xEA, 0, 0, 0, 0, 0, 0 };
 
-	m_globalData.data.push_front({OpCode::DECL, BytecodeEntry(m_globalData.varCount)});
-	m_globalData.data.push_back({OpCode::DEL, BytecodeEntry(m_globalData.varCount)});
-	m_globalData.data.push_back({OpCode::EXIT, BytecodeEntry(0L)});
+	m_globalData.data.push_front({OpCode::DECL, OceanValue(m_globalData.varCount)});
+	m_globalData.data.push_back({OpCode::DEL, OceanValue(m_globalData.varCount)});
+	m_globalData.data.push_back({OpCode::EXIT, OceanValue(0L)});
 
 	for(auto& func : m_functions)
 	{
-		func.scope.data.push_front({OpCode::DECL, BytecodeEntry(func.scope.varCount)});
+		func.scope.data.push_front({OpCode::DECL, OceanValue(func.scope.varCount)});
 		for(auto it = func.scope.data.begin(); it != func.scope.data.end(); ++it)
 		{
 			if(it->op == OpCode::RETURN)
 			{
-				func.scope.data.insert(it, {OpCode::DEL, BytecodeEntry(func.scope.varCount)});
+				func.scope.data.insert(it, {OpCode::DEL, OceanValue(func.scope.varCount)});
 			}
 		}
-		func.scope.data.push_back({OpCode::DEL, BytecodeEntry(func.scope.varCount)});
-		func.scope.data.push_back({OpCode::RETURN, BytecodeEntry(0L)});
+		func.scope.data.push_back({OpCode::DEL, OceanValue(func.scope.varCount)});
+		func.scope.data.push_back({OpCode::RETURN, OceanValue(0L)});
 	}
 
 	int64_t sizeOfStrings = 0;
@@ -224,10 +228,10 @@ sprawl::String BytecodeWriter::Finish()
 	int64_t sizeOfFunctions = 0;
 	for(auto& func : m_functions)
 	{
-		sizeOfFunctions += sizeof(int64_t) + (func.scope.data.size() * sizeof(BytecodeItem));
+		sizeOfFunctions += sizeof(int64_t) + (func.scope.data.size() * sizeof(Instruction));
 	}
 
-	int64_t sizeOfGlobalData = m_globalData.data.size() * sizeof(BytecodeItem);
+	int64_t sizeOfGlobalData = m_globalData.data.size() * sizeof(Instruction);
 
 	int size = sizeof(header) + sizeOfStrings + sizeOfFunctions + sizeOfGlobalData + sizeof(int64_t) * 3;
 	char* outBuffer = new char[size];
@@ -246,6 +250,9 @@ sprawl::String BytecodeWriter::Finish()
 		buf += len;
 	}
 
+	sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> offsetsNeedingPatched;
+	sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> offsets;
+
 	memcpy(buf, &sizeOfFunctions, sizeof(sizeOfFunctions));
 	buf += sizeof(sizeOfFunctions);
 	for(auto& func : m_functions)
@@ -254,10 +261,22 @@ sprawl::String BytecodeWriter::Finish()
 		buf += sizeof(int64_t);
 		for(auto& item : func.scope.data)
 		{
+			offsets.insert(buf - outBuffer, int64_t(&item));
+			switch(item.op)
+			{
+				case OpCode::JUMP:
+				case OpCode::JUMPIF:
+				case OpCode::JUMPNIF:
+					offsetsNeedingPatched.insert(item.value.asInt, buf - outBuffer);
+					break;
+				default:
+					break;
+			}
+
 			memcpy(buf, &item.op, sizeof(OpCode));
 			buf += sizeof(OpCode);
-			memcpy(buf, &item.value, sizeof(BytecodeEntry));
-			buf += sizeof(BytecodeEntry);
+			memcpy(buf, &item.value, sizeof(OceanValue));
+			buf += sizeof(OceanValue);
 		}
 	}
 
@@ -265,10 +284,27 @@ sprawl::String BytecodeWriter::Finish()
 	buf += sizeof(sizeOfGlobalData);
 	for(auto& item : m_globalData.data)
 	{
+		offsets.insert(buf - outBuffer, int64_t(&item));
+		switch(item.op)
+		{
+			case OpCode::JUMP:
+			case OpCode::JUMPIF:
+			case OpCode::JUMPNIF:
+				offsetsNeedingPatched.insert(item.value.asInt, buf - outBuffer);
+				break;
+			default:
+				break;
+		}
+
 		memcpy(buf, &item.op, sizeof(OpCode));
 		buf += sizeof(OpCode);
-		memcpy(buf, &item.value, sizeof(BytecodeEntry));
-		buf += sizeof(BytecodeEntry);
+		memcpy(buf, &item.value, sizeof(OceanValue));
+		buf += sizeof(OceanValue);
+	}
+
+	for(auto it = offsetsNeedingPatched.begin(); it.Valid(); ++it)
+	{
+		memcpy(outBuffer + it.Key(), &offsets.get(it.Value()), sizeof(int64_t));
 	}
 
 	sprawl::String str(outBuffer, size);
@@ -295,13 +331,13 @@ int64_t BytecodeWriter::GetStringOffset(sprawl::String const& string) const
 
 
 
-BytecodeWriter::DeferredJump::DeferredJump(BytecodeItem* item)
+BytecodeWriter::DeferredJump::DeferredJump(Instruction* item)
 	: m_item(item)
 {
 	// NOP
 }
 
-void BytecodeWriter::DeferredJump::SetTarget(int64_t target)
+void BytecodeWriter::DeferredJump::SetTarget(Instruction const* target)
 {
-	m_item->value = BytecodeEntry(target);
+	m_item->value = OceanValue(int64_t(target));
 }

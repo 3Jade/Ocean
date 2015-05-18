@@ -4,34 +4,25 @@
 #include <list>
 #include <sprawl/collections/HashMap.hpp>
 #include "OpCode.hpp"
+#include "LibOcean.hpp"
 
 class BytecodeWriter
 {
 public:
 
-	union BytecodeEntry
-	{
-		explicit BytecodeEntry(int64_t value) : asValue(value) {}
-		explicit BytecodeEntry(OpCode value) : asValue(static_cast<std::underlying_type<OpCode>::type>(value)) {}
-		explicit BytecodeEntry(double value) : asDouble(value) {}
-		int64_t asValue;
-		double asDouble;
-		char asByteStr[sizeof(int64_t)];
-	};
-
-	struct BytecodeItem
+	struct Instruction
 	{
 		OpCode op;
-		BytecodeEntry value;
+		OceanValue value;
 	};
 
 	class DeferredJump
 	{
 	public:
-		DeferredJump(BytecodeItem* builder);
-		void SetTarget(int64_t target);
+		DeferredJump(Instruction* builder);
+		void SetTarget(Instruction const* target);
 	private:
-		BytecodeItem* m_item;
+		Instruction* m_item;
 	};
 
 	BytecodeWriter();
@@ -42,6 +33,7 @@ public:
 	void Stack_Push(int64_t value);
 	void Stack_Push(sprawl::String const& value);
 	void Stack_Push(double value);
+	void Stack_Push(OceanValue value);
 
 	void Stack_Pop(int64_t numItems);
 	void Stack_SwapWithTop(int64_t depth);
@@ -68,7 +60,7 @@ public:
 
 	void Exit(int64_t exitCode);
 
-	int64_t GetCurrentOffset();
+	Instruction const* GetCurrentInstruction();
 	int64_t GetStringOffset(sprawl::String const& string) const;
 
 	sprawl::String Finish();
@@ -80,7 +72,7 @@ private:
 	{
 		ScopeData() : variables(), data(), varCount(0) {}
 		sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> variables;
-		std::list<BytecodeItem> data;
+		std::list<Instruction> data;
 		int64_t varCount;
 	};
 
@@ -97,8 +89,8 @@ private:
 
 	mutable sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, sprawl::String>> m_stringOffsets;
 
-	std::list<BytecodeItem>* m_currentBuilder;
-	std::list<std::list<BytecodeItem>*> m_builderStack;
+	std::list<Instruction>* m_currentBuilder;
+	std::list<std::list<Instruction>*> m_builderStack;
 
 	ScopeData* m_currentScope;
 	std::list<ScopeData*> m_scopeStack;

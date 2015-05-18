@@ -2,20 +2,30 @@
 #include <sprawl/memory/PoolAllocator.hpp>
 #include "../matches/RegexMatch.hpp"
 #include "../../../libocean/src/BytecodeWriter.hpp"
+#include "../H2OCompiler.hpp"
 
-LiteralItem::LiteralItem(sprawl::String const& name, char const* const regex, Translator const& translator)
+LiteralItem::LiteralItem(sprawl::String const& name, sprawl::StringLiteral regex, Translator const& translator)
 	: Item(name)
-	, m_regex(regex)
+	, m_regex(re2::StringPiece(regex.GetPtr(), regex.GetLength()))
 	, m_regexBase(regex)
 	, m_translator(translator)
 	, m_startHint(nullptr, 0)
 {
-	// NOP
+	int hintLength = 0;
+	char const* const regexPtr = regex.GetPtr();
+	while(hintLength < regex.GetLength() && (isalpha(regexPtr[hintLength]) || isdigit(regexPtr[hintLength])))
+	{
+		++hintLength;
+	}
+	if(hintLength != 0)
+	{
+		m_startHint = sprawl::StringLiteral(regexPtr, hintLength);
+	}
 }
 
 LiteralItem::LiteralItem(LiteralItem const& other)
 	: Item(other)
-	, m_regex(other.m_regexBase)
+	, m_regex(re2::StringPiece(other.m_regexBase.GetPtr(), other.m_regexBase.GetLength()))
 	, m_regexBase(other.m_regexBase)
 	, m_translator(other.m_translator)
 	, m_startHint(other.m_startHint)
@@ -49,7 +59,7 @@ int LiteralItem::Find(sprawl::StringLiteral const& text)
 	return -1;
 }
 
-/*virtual*/ Match* LiteralItem::Match(TokenList const& tokens) /*override*/
+/*virtual*/ Match* LiteralItem::Match(H2OCompiler const& /*compiler*/, TokenList const& tokens) /*override*/
 {
 	Token const& token = tokens[0];
 	int nArgs = m_regex.NumberOfCapturingGroups();
@@ -63,7 +73,7 @@ int LiteralItem::Find(sprawl::StringLiteral const& text)
 
 	if(RE2::FullMatchN(pieces[0], m_regex, &args, nArgs))
 	{
-		return RegexMatch::Create(*this, 1, pieces);
+		return RegexMatch::Create(*this, tokens.Slice(0, 1), pieces);
 	}
 	else
 	{
@@ -77,7 +87,7 @@ bool LiteralItem::Translate(BytecodeWriter& writer, ::Match const& match)
 	RegexMatch const& rMatch = static_cast<RegexMatch const&>(match);
 	if(m_translator)
 	{
-		int64_t value;
+		OceanValue value;
 		if(!m_translator(writer, rMatch, value))
 		{
 			return false;
@@ -91,7 +101,7 @@ bool LiteralItem::Translate(BytecodeWriter& writer, ::Match const& match)
 	return true;
 }
 
-bool LiteralItem::GetLiteralValue(BytecodeWriter const& writer, RegexMatch const& match, int64_t& outValue)
+bool LiteralItem::GetLiteralValue(BytecodeWriter const& writer, RegexMatch const& match, OceanValue& outValue)
 {
 	RegexMatch const& rMatch = static_cast<RegexMatch const&>(match);
 	if(m_translator)
@@ -107,5 +117,3 @@ bool LiteralItem::GetLiteralValue(BytecodeWriter const& writer, RegexMatch const
 	}
 	return true;
 }
-
-/*static*/ sprawl::collections::HashMap<LiteralItem, sprawl::KeyAccessor<LiteralItem, sprawl::String>> LiteralItem::ms_literals;

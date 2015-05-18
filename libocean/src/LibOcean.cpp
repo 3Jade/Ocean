@@ -10,16 +10,16 @@ namespace OceanStatic
 {
 	static void add(Stack& stack)
 	{
-		int64_t val1 = stack.Consume();
-		int64_t val2 = stack.Consume();
-		stack.Push(val1 + val2);
+		int64_t val1 = stack.Consume().asInt;
+		int64_t val2 = stack.Consume().asInt;
+		stack.Push(OceanValue(val1 + val2));
 	}
 
 	static void mult(Stack& stack)
 	{
-		int64_t val1 = stack.Consume();
-		int64_t val2 = stack.Consume();
-		stack.Push(val1 * val2);
+		int64_t val1 = stack.Consume().asInt;
+		int64_t val2 = stack.Consume().asInt;
+		stack.Push(OceanValue(val1 * val2));
 	}
 }
 

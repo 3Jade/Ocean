@@ -1,10 +1,11 @@
 #include "RegexSpanItem.hpp"
 #include "../matches/StringMatch.hpp"
 #include "../../../libocean/src/BytecodeWriter.hpp"
+#include "../H2OCompiler.hpp"
 
-RegexSpanItem::RegexSpanItem(const sprawl::String& name, const char* const startRegex, const char* const endLiteral, Translator const& translator)
+RegexSpanItem::RegexSpanItem(const sprawl::String& name, sprawl::StringLiteral const& startRegex, sprawl::StringLiteral const& endLiteral, Translator const& translator)
 	: Item(name)
-	, m_startRegex(startRegex)
+	, m_startRegex(re2::StringPiece(startRegex.GetPtr(), startRegex.GetLength()))
 	, m_startRegexBase(startRegex)
 	, m_end(endLiteral)
 	, m_translator(translator)
@@ -12,12 +13,21 @@ RegexSpanItem::RegexSpanItem(const sprawl::String& name, const char* const start
 	, m_restrictNewlines(false)
 	, m_startHint(nullptr, 0)
 {
-	// NOP
+	int hintLength = 0;
+	char const* const startRegexPtr = startRegex.GetPtr();
+	while(hintLength < startRegex.GetLength() && (isalpha(startRegexPtr[hintLength]) || isdigit(startRegexPtr[hintLength])))
+	{
+		++hintLength;
+	}
+	if(hintLength != 0)
+	{
+		m_startHint = sprawl::StringLiteral(startRegexPtr, hintLength);
+	}
 }
 
 RegexSpanItem::RegexSpanItem(const RegexSpanItem& other)
 	: Item(other)
-	, m_startRegex(other.m_startRegexBase)
+	, m_startRegex(re2::StringPiece(other.m_startRegexBase.GetPtr(), other.m_startRegexBase.GetLength()))
 	, m_startRegexBase(other.m_startRegexBase)
 	, m_end(other.m_end)
 	, m_translator(other.m_translator)
@@ -56,7 +66,7 @@ int RegexSpanItem::_find(sprawl::StringLiteral const& text, int& startPosition, 
 	if(RE2::ConsumeN(&piece, m_startRegex, &args, nArgs-1))
 	{
 		std::string end;
-		m_startRegex.Rewrite(&end, m_end, pieces, nArgs);
+		m_startRegex.Rewrite(&end, re2::StringPiece(m_end.GetPtr(), m_end.GetLength()), pieces, nArgs);
 		std::string escape;
 		if(m_escape.GetLength())
 		{
@@ -67,6 +77,10 @@ int RegexSpanItem::_find(sprawl::StringLiteral const& text, int& startPosition, 
 
 		while(!piece.empty())
 		{
+			if(end.length() == 0 && (piece[0] == '\n' || piece[0] == '\r'))
+			{
+				return endPosition;
+			}
 			if(m_restrictNewlines && piece[0] == '\n')
 			{
 				return -1;
@@ -83,6 +97,11 @@ int RegexSpanItem::_find(sprawl::StringLiteral const& text, int& startPosition, 
 			}
 			piece.set(piece.data() + 1, piece.length() - 1);
 		}
+		if(end.length() == 0)
+		{
+			endPosition = text.GetLength();
+			return text.GetLength();
+		}
 		return -1;
 	}
 	delete[] pieces;
@@ -96,7 +115,7 @@ int RegexSpanItem::Find(sprawl::StringLiteral const& text)
 	return _find(text, start, end);
 }
 
-Match* RegexSpanItem::Match(TokenList const& tokens)
+Match* RegexSpanItem::Match(H2OCompiler const& /*compiler*/, TokenList const& tokens)
 {
 	sprawl::StringLiteral const& lit = tokens[0].Text();
 	int start;
@@ -104,7 +123,7 @@ Match* RegexSpanItem::Match(TokenList const& tokens)
 	int ret = _find(lit, start, end);
 	if(ret != -1)
 	{
-		return StringMatch::Create(*this, 1, sprawl::StringRef(lit.GetPtr() + start, lit.GetLength() - start - end));
+		return StringMatch::Create(*this, tokens.Slice(0, 1), sprawl::StringRef(lit.GetPtr() + start, end - start));
 	}
 	return nullptr;
 }
@@ -114,18 +133,12 @@ bool RegexSpanItem::Translate(BytecodeWriter& writer, ::Match const& match)
 	StringMatch const& stringMatch = static_cast<StringMatch const&>(match);
 	if(m_translator)
 	{
-		int64_t value;
+		OceanValue value;
 		if(!m_translator(writer, stringMatch, value))
 		{
 			return false;
 		}
 		writer.Stack_Push(value);
 	}
-	else
-	{
-		writer.Stack_Push(stringMatch.GetString());
-	}
 	return true;
 }
-
-/*static*/ sprawl::collections::HashMap<RegexSpanItem, sprawl::KeyAccessor<RegexSpanItem, sprawl::String>> RegexSpanItem::ms_regexSpans;

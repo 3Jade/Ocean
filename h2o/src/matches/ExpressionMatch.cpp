@@ -3,8 +3,8 @@
 
 typedef sprawl::memory::DynamicPoolAllocator<sizeof(ExpressionMatch)> matchAllocator;
 
-ExpressionMatch::ExpressionMatch(Item& item, size_t endIndex, ExpressionMatch::MatchMap&& matches)
-	: Match(item, endIndex)
+ExpressionMatch::ExpressionMatch(Item& item, TokenList&& tokens, ExpressionMatch::MatchMap&& matches)
+	: Match(item, std::move(tokens))
 	, m_matches(std::move(matches))
 {
 	// NOP
@@ -24,10 +24,10 @@ ExpressionMatch::~ExpressionMatch()
 	}
 }
 
-ExpressionMatch* ExpressionMatch::Create(Item& item, size_t endIndex, ExpressionMatch::MatchMap&& matches)
+ExpressionMatch* ExpressionMatch::Create(Item& item, TokenList&& tokens, ExpressionMatch::MatchMap&& matches)
 {
 	ExpressionMatch* ret = (ExpressionMatch*)matchAllocator::alloc();
-	new(ret) ExpressionMatch(item, endIndex, std::move(matches));
+	new(ret) ExpressionMatch(item, std::move(tokens), std::move(matches));
 	return ret;
 }
 

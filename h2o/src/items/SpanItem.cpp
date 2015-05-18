@@ -1,11 +1,12 @@
 #include "SpanItem.hpp"
 #include "../matches/StringMatch.hpp"
 #include "../../../libocean/src/BytecodeWriter.hpp"
+#include "../H2OCompiler.hpp"
 
-SpanItem::SpanItem(const sprawl::String& name, const char* const startLiteral, const char* const endLiteral, Translator const& translator)
+SpanItem::SpanItem(const sprawl::String& name, sprawl::StringLiteral const& startLiteral, sprawl::StringLiteral const& endLiteral, Translator const& translator)
 	: Item(name)
-	, m_start(startLiteral, strlen(startLiteral))
-	, m_end(endLiteral, strlen(endLiteral))
+	, m_start(startLiteral)
+	, m_end(endLiteral)
 	, m_translator(translator)
 	, m_escape(nullptr, 0)
 	, m_restrictNewlines(false)
@@ -35,6 +36,10 @@ int SpanItem::_find(sprawl::StringLiteral const& text, int& startPosition, int& 
 
 		while(offset < length)
 		{
+			if(m_end.GetLength() == 0 && (ptr[offset] == '\n' || ptr[offset] == '\r'))
+			{
+				return offset;
+			}
 			if(m_restrictNewlines && ptr[offset] == '\n')
 			{
 				return -1;
@@ -51,7 +56,11 @@ int SpanItem::_find(sprawl::StringLiteral const& text, int& startPosition, int& 
 			}
 			++offset;
 		}
-		printf("End\n");
+		if(m_end.GetLength() == 0)
+		{
+			endPosition = length;
+			return length;
+		}
 		return -1;
 	}
 	return -1;
@@ -64,7 +73,7 @@ int SpanItem::Find(sprawl::StringLiteral const& text)
 	return _find(text, start, end);
 }
 
-Match* SpanItem::Match(TokenList const& tokens)
+Match* SpanItem::Match(H2OCompiler const& /*compiler*/, TokenList const& tokens)
 {
 	sprawl::StringLiteral const& lit = tokens[0].Text();
 	int start;
@@ -72,7 +81,7 @@ Match* SpanItem::Match(TokenList const& tokens)
 	int ret = _find(lit, start, end);
 	if(ret != -1)
 	{
-		return StringMatch::Create(*this, 1, sprawl::StringRef(lit.GetPtr() + start, lit.GetLength() - start - end));
+		return StringMatch::Create(*this, tokens.Slice(0, 1), sprawl::StringRef(lit.GetPtr() + start, end - start));
 	}
 	return nullptr;
 }
@@ -82,18 +91,12 @@ bool SpanItem::Translate(BytecodeWriter& writer, ::Match const& match)
 	StringMatch const& stringMatch = static_cast<StringMatch const&>(match);
 	if(m_translator)
 	{
-		int64_t value;
+		OceanValue value;
 		if(!m_translator(writer, stringMatch, value))
 		{
 			return false;
 		}
 		writer.Stack_Push(value);
 	}
-	else
-	{
-		writer.Stack_Push(stringMatch.GetString());
-	}
 	return true;
 }
-
-/*static*/ sprawl::collections::HashMap<SpanItem, sprawl::KeyAccessor<SpanItem, sprawl::String>> SpanItem::ms_spans;

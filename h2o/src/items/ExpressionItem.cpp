@@ -1,6 +1,7 @@
 #include "ExpressionItem.hpp"
 #include "../matches/ExpressionMatch.hpp"
 #include "../../../libocean/src/BytecodeWriter.hpp"
+#include "../H2OCompiler.hpp"
 
 /*virtual*/ ExpressionItem::ExpressionItem(const sprawl::String& name, StringList&& values, Translator const& translator)
 	: Item(name)
@@ -12,7 +13,6 @@
 	{
 		if(m_values[i].GetPtr()[0] != '$')
 		{
-			ms_expressionLiterals.insert(m_values[i]);
 			m_literals.PushFront(i);
 		}
 	}
@@ -71,7 +71,7 @@ sprawl::String PrintStringList(StringList const& tokens)
 	return out;
 }
 
-Match* ExpressionItem::Match(const TokenList& tokens) /*override*/
+Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& tokens) /*override*/
 {
 	if(tokens.Length() < m_literals.Size())
 	{
@@ -174,7 +174,7 @@ Match* ExpressionItem::Match(const TokenList& tokens) /*override*/
 						it.Value().push_back(std::vector< ::Match*>());
 
 						sprawl::String expNameStr(sprawl::StringLiteral(expNamePtr, expNameLen));
-						Item* expReferencedItem = Item::ms_allItems.get(expNameStr);
+						Item* expReferencedItem = compiler.GetItem(expNameStr);
 
 						int start = startLocation + 1;
 						bool found = false;
@@ -185,7 +185,7 @@ Match* ExpressionItem::Match(const TokenList& tokens) /*override*/
 						{
 							//printf("%s%s start start end %d %d %d\n", tabs.c_str(), GetName().c_str(), start, startLocation, endLocation);
 							TokenList tokenList = tokens.Slice(start, endLocation);
-							::Match* match = expReferencedItem->Match(tokenList);
+							::Match* match = expReferencedItem->Match(compiler, tokenList);
 							//printf("%s%s %s %p %zd %s %zd\n", tabs.c_str(), GetName().c_str(), expNameStr.c_str(), match, match ? match->End() : -1, PrintTokens(tokenList).c_str(), tokenList.Length());
 							if(match)
 							{
@@ -331,14 +331,14 @@ Match* ExpressionItem::Match(const TokenList& tokens) /*override*/
 			it.Value().push_back(std::vector< ::Match*>());
 
 			sprawl::String expNameStr(sprawl::StringLiteral(expNamePtr, expNameLen));
-			Item* expReferencedItem = Item::ms_allItems.get(expNameStr);
+			Item* expReferencedItem = compiler.GetItem(expNameStr);
 
 			bool found = false;
 			for(;;)
 			{
 				TokenList tokenList = tokens.Slice(endLocation, tokens.Length());
 				//printf("%s%s Matching %s against %s %zd\n", tabs.c_str(), GetName().c_str(), expNameStr.c_str(), PrintTokens(tokenList).c_str(), tokenList.Length());
-				::Match* match = expReferencedItem->Match(tokenList);
+				::Match* match = expReferencedItem->Match(compiler, tokenList);
 				//printf("%s%s Matched  %p %zd %d\n", tabs.c_str(), GetName().c_str(), match, match ? match->End() : -1, endLocation);
 				if(match)
 				{
@@ -381,7 +381,7 @@ Match* ExpressionItem::Match(const TokenList& tokens) /*override*/
 	}
 
 	tabs = oldTabs;
-	return ExpressionMatch::Create(*this, endLocation, std::move(matches));
+	return ExpressionMatch::Create(*this, tokens.Slice(0, endLocation), std::move(matches));
 }
 
 bool ExpressionItem::Translate(BytecodeWriter& writer, ::Match const& match)
@@ -409,6 +409,3 @@ bool ExpressionItem::Translate(BytecodeWriter& writer, ::Match const& match)
 		return true;
 	}
 }
-
-/*static*/ sprawl::collections::HashMap<ExpressionItem, sprawl::KeyAccessor<ExpressionItem, sprawl::String>> ExpressionItem::ms_expressions;
-/*static*/ sprawl::collections::HashSet<sprawl::String> ExpressionItem::ms_expressionLiterals;

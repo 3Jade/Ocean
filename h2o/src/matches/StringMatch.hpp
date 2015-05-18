@@ -5,16 +5,18 @@
 class StringMatch : public Match
 {
 public:
-	StringMatch(Item& baseItem, size_t endIndex, sprawl::StringRef const& stringData);
+	StringMatch(Item& baseItem, TokenList&& tokens, sprawl::StringRef const& stringData);
 
-	sprawl::String GetString() const;
+	sprawl::StringRef GetString() const;
 
-	virtual void Print() override
+	virtual MatchType GetType() const override { return MatchType::String; }
+
+	virtual void Print() const override
 	{
 		printf("\"%s\"", m_stringData.GetPtr());
 	}
 
-	static StringMatch* Create(Item& baseItem, size_t endIndex, sprawl::StringRef const& stringData);
+	static StringMatch* Create(Item& baseItem, TokenList&& tokens, sprawl::StringRef const& stringData);
 	virtual void Release();
 private:
 	sprawl::StringRef m_stringData;

@@ -7,6 +7,7 @@
 
 class Match;
 class BytecodeWriter;
+class H2OCompiler;
 
 class Item
 {
@@ -15,17 +16,9 @@ public:
 
 	sprawl::String const& GetName();
 
-	virtual ::Match* Match(TokenList const& tokens) = 0;
+	virtual ::Match* Match(H2OCompiler const& compiler, TokenList const& tokens) = 0;
 
 	virtual bool Translate(BytecodeWriter& writer, ::Match const& match) = 0;
-
-	static sprawl::collections::HashMap<Item*, sprawl::KeyAccessor<Item*, sprawl::String>> ms_allItems;
-	static sprawl::collections::ForwardList<Item*> ms_topLevelItems;
 private:
 	sprawl::String m_name;
 };
-
-inline void AddTopLevelItem(sprawl::String const& itemName)
-{
-	Item::ms_topLevelItems.PushFront(Item::ms_allItems.get(itemName));
-}

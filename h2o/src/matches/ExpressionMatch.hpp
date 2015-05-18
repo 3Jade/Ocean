@@ -9,7 +9,7 @@ class ExpressionMatch : public Match
 public:
 	typedef sprawl::collections::HashMap<std::vector<std::vector<Match*>>, sprawl::KeyAccessor<std::vector<std::vector<Match*>>, sprawl::String>> MatchMap;
 
-	ExpressionMatch(Item& item, size_t endIndex, MatchMap&& matches);
+	ExpressionMatch(Item& item, TokenList&& tokens, MatchMap&& matches);
 	~ExpressionMatch();
 
 	MatchMap::const_iterator begin() const { return m_matches.cbegin(); }
@@ -17,7 +17,9 @@ public:
 
 	std::vector<std::vector<Match*>> const& operator[](sprawl::String const& str) const;
 
-	virtual void Print() override
+	virtual MatchType GetType() const override { return MatchType::Expression; }
+
+	virtual void Print() const override
 	{
 		bool first1 = true;
 		for(auto it = m_matches.begin(); it.Valid(); ++it)
@@ -54,7 +56,7 @@ public:
 		}
 	}
 
-	static ExpressionMatch* Create(Item& item, size_t endIndex, MatchMap&& matches);
+	static ExpressionMatch* Create(Item& item, TokenList&& tokens, MatchMap&& matches);
 	virtual void Release() override;
 private:
 	MatchMap m_matches;

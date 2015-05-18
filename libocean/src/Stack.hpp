@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include "LibOcean.hpp"
 
 class Stack
 {
@@ -12,12 +13,12 @@ public:
 		//NOP
 	}
 
-	inline int64_t Consume()
+	inline OceanValue Consume()
 	{
 		return m_values[--m_size];
 	}
 
-	inline int64_t Read()
+	inline OceanValue Read()
 	{
 		return m_values[m_size-1];
 	}
@@ -27,7 +28,7 @@ public:
 		m_size -= amount;
 	}
 
-	inline void Push(int64_t value)
+	inline void Push(OceanValue value)
 	{
 		m_values[m_size++] = value;
 	}
@@ -35,7 +36,7 @@ public:
 	inline void SwapWithTop(int64_t location)
 	{
 		location = m_size - location - 1;
-		int64_t tmp = m_values[m_size-1];
+		OceanValue tmp = m_values[m_size-1];
 		m_values[m_size-1] = m_values[location];
 		m_values[location] = tmp;
 	}
@@ -47,6 +48,6 @@ public:
 	}
 
 private:
-	int64_t m_values[32768];
+	OceanValue m_values[32768];
 	int64_t m_size;
 };

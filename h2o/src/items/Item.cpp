@@ -10,6 +10,3 @@ const sprawl::String&Item::GetName()
 {
 	return m_name;
 }
-
-/*static*/ sprawl::collections::HashMap<Item*, sprawl::KeyAccessor<Item*, sprawl::String>> Item::ms_allItems;
-/*static*/ sprawl::collections::ForwardList<Item*> Item::ms_topLevelItems;

@@ -59,7 +59,7 @@ int Process(char* bytecode, long size)
 
 	bytecode += functionsLength;
 
-	int64_t* variables = new int64_t[32768];
+	OceanValue* variables = new OceanValue[32768];
 	int64_t varSize = 0;
 
 	int64_t globalDataSize = *READ(int64_t);
@@ -93,8 +93,8 @@ loop:
 		{
 			OpCode code = *READ(OpCode);
 			bytecode += sizeof(int64_t);
-			int64_t value = *READ(int64_t);
-			bytecode += sizeof(int64_t);
+			OceanValue value = *READ(OceanValue);
+			bytecode += sizeof(OceanValue);
 
 			switch(code)
 			{
@@ -102,52 +102,52 @@ loop:
 					stack.Push(value);
 					break;
 				case OpCode::POP:
-					stack.Pop(value);
+					stack.Pop(value.asInt);
 					break;
 				case OpCode::COPY:
-					stack.CopyToTop(value);
+					stack.CopyToTop(value.asInt);
 					break;
 				case OpCode::SWAP:
 				{
-					stack.SwapWithTop(value);
+					stack.SwapWithTop(value.asInt);
 					break;
 				}
 				case OpCode::JUMP:
-					bytecode = bytecodeStart + value;
+					bytecode = bytecodeStart + value.asInt;
 					break;
 				case OpCode::JUMPIF:
-					if(stack.Consume() != 0)
+					if(stack.Consume().asInt != 0)
 					{
-						bytecode = bytecodeStart + value;
+						bytecode = bytecodeStart + value.asInt;
 					}
 					break;
 				case OpCode::JUMPNIF:
-					if(stack.Consume() == 0)
+					if(stack.Consume().asInt == 0)
 					{
-						bytecode = bytecodeStart + value;
+						bytecode = bytecodeStart + value.asInt;
 					}
 					break;
 				case OpCode::CALL:
-					reinterpret_cast<Ocean::BoundFunction::FunctionType>(value)(stack);
+					reinterpret_cast<Ocean::BoundFunction::FunctionType>(value.asInt)(stack);
 					break;
 				case OpCode::RETURN:
-					bytecode = reinterpret_cast<char*>(callStack.Consume());
+					bytecode = reinterpret_cast<char*>(callStack.Consume().asInt);
 					break;
 				case OpCode::DECL:
-					varSize += value;
+					varSize += value.asInt;
 					break;
 				case OpCode::LOAD:
-					stack.Push(variables[varSize + value]);
+					stack.Push(variables[varSize + value.asInt]);
 					break;
 				case OpCode::STORE:
-					variables[varSize + value] = stack.Consume();
+					variables[varSize + value.asInt] = stack.Consume();
 					break;
 				case OpCode::DEL:
-					varSize -= value;
+					varSize -= value.asInt;
 					break;
 				case OpCode::EXIT:
 					goto loop;
-					return value;
+					return value.asInt;
 					break;
 				case OpCode::CREATE:
 				case OpCode::GET:
