@@ -9,11 +9,11 @@ Group(value, [ identifier integer ]);
 Expression(grouping, { "(" $expression ")" } );
 
 Expression(mult, function=Mult, { $expression<LHS> "*" $expression<RHS> });
-Expression(add, function=Add, { $expression<LHS> "+" $expression<RHS> });
 Expression(div, function=Div, { $expression<LHS> "/" $expression<RHS> });
+Expression(add, function=Add, { $expression<LHS> "+" $expression<RHS> });
 Expression(sub, function=Sub, { $expression<LHS> "-" $expression<RHS> });
 
-Group(binary_operator, [ add mult div sub ]);
+Group(binary_operator, [ add sub mult div ]);
 
 # Expression
 
