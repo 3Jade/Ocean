@@ -1,6 +1,3 @@
-Group(expression, [ binary_operator grouping value ]);
-Group(expression, [ binary_operator grouping value ])
-
 # Basics
 
 Literal(identifier, "[a-zA-Z][a-zA-Z0-9]*");
