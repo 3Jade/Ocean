@@ -17,7 +17,7 @@ Group(binary_operator, [ add mult div sub ]);
 
 # Expression
 
-Group(expression, [ binary_operator grouping value function ]);
+Group(expression, [ binary_operator grouping value functionCall ]);
 
 # Variables
 
