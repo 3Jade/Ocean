@@ -1,0 +1,70 @@
+Group(expression, [ binary_operator grouping value ]);
+Group(expression, [ binary_operator grouping value ])
+
+### STRINGS
+
+Span(sqstring, function=ReadString, start="'", end="'", escape="\'", nonewlines=true);
+Span(dqstring, function=ReadString, start='"', end='"', escape='\"', nonewlines=true);
+RegexSpan(rawsqstring, function=ReadString, start='R(\[.*\])?"', end='"\1');
+RegexSpan(rawdqstring, function=ReadString, start="R(\[.*\])?'", end="'\1");
+
+Group(string, [ sqstring dqstring rawsqstring rawdqstring ]);
+
+Literal(identifier, "[a-zA-Z][a-zA-Z0-9]*");
+
+
+### FLOATS
+
+Literal(decfloat, function=ReadDecFloat, "[0-9]+\.[0-9]+");
+Group(float, [ decfloat ]);
+
+
+### INTEGERS
+	
+Literal(decint, function=ReadDecInt, "[0-9]+");
+Group(integer, [ decint ]);
+
+
+### NUMBER
+
+Group(number, [ integer float ]);
+
+
+### VALUE
+
+Group(value, [ identifier number string ]);
+
+
+### EXPRESSIONS
+
+Expression(grouping, { "(" $expression ")" } );
+
+Expression(mult, function=Mult, { $expression<LHS> "*" $expression<RHS> });
+Expression(add, function=Add, { $expression<LHS> "+" $expression<RHS> });
+
+Group(binary_operator, [ add mult ]);
+Group(expression, [ binary_operator grouping value ]);
+
+Expression(initializer, { "=" $expression } );
+
+Expression(variable_declaration, function=DeclareVariable, { "var" $identifier $?initializer });
+
+Expression(parameter, function=DeclareParameter, { $identifier $?initializer });
+Expression(commaParameter, { "," $parameter });
+Expression(parameterCommaParameter, { $parameter $*commaParameter });
+
+#EnableSignificantWhitespace();
+
+Expression(function, function=Function, { "function" $identifier<function_name> "(" $?parameterCommaParameter<parameters> ")" "{" $*line<lines> "}" });
+
+Expression(commaValue, { "," $value });
+Expression(valueCommaValue, { $value $*commaValue });
+
+Expression(functionCall, function=CallFunction, { $identifier<function_name> "(" $?valueCommaValue<parameters> ")" });
+
+Group(lineItem, [ variable_declaration functionCall ]);
+Expression(line, { $lineItem ";" });
+
+### Top level items
+
+TopLevelItems([ line function ]);

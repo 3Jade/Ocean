@@ -1,12 +1,14 @@
 #include <cstdio>
 #include <cstdint>
+#include <sys/stat.h>
+#include <unistd.h>
 #include <sprawl/collections/HashMap.hpp>
 #include <sprawl/string/String.hpp>
-#include <sprawl/time/time.hpp>
 
 #include "../../libocean/src/OpCode.hpp"
 #include "../../libocean/src/Stack.hpp"
 #include "../../libocean/src/LibOcean.hpp"
+#include "../../libh2o/src/h2o.hpp"
 
 
 int Process(char* bytecode, long size)
@@ -55,9 +57,40 @@ int Process(char* bytecode, long size)
 	ASSERT(functionsLength + stringsLength + sizeof(int64_t) * 3 < size, "Invalid bytecode. (Corrupt Functions Table)");
 	char* functionsEnd = bytecode + functionsLength;
 
-	sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> functions;
+	sprawl::collections::HashMap<char*, sprawl::KeyAccessor<char*, int64_t>> functions;
 
-	bytecode += functionsLength;
+	while(bytecode < functionsEnd)
+	{
+		int64_t funcNameOffset = *READ(int64_t);
+		bytecode += sizeof(int64_t);
+		int64_t functionLength = *READ(int64_t);
+		bytecode += sizeof(int64_t);
+		functions.insert(bytecode, funcNameOffset);
+
+		char* functionEnd = bytecode + functionLength;
+		while(bytecode < functionEnd)
+		{
+			OpCode code = *READ(OpCode);
+			bytecode += sizeof(int64_t);
+			if(code == OpCode::CALL)
+			{
+				int64_t value = *READ(int64_t);
+				if(nativeFunctions.has(value))
+				{
+					OpCode code = OpCode::CALLN;
+					bytecode -= sizeof(int64_t);
+					memcpy(bytecode, &code, sizeof(int64_t));
+					bytecode += sizeof(int64_t);
+					memcpy(bytecode, &nativeFunctions.get(value), sizeof(int64_t));
+				}
+				else
+				{
+					memcpy(bytecode, &functions.get(value), sizeof(int64_t));
+				}
+			}
+			bytecode += sizeof(int64_t);
+		}
+	}
 
 	OceanValue* variables = new OceanValue[32768];
 	int64_t varSize = 0;
@@ -68,7 +101,6 @@ int Process(char* bytecode, long size)
 	ASSERT(globalDataSize % (sizeof(int64_t) * 2) == 0, "Invalid bytecode. (Corrupt Global Data)");
 	char* globalStart = bytecode;
 	char* globalEnd = globalStart + globalDataSize;
-	int64_t start = sprawl::time::Now(sprawl::time::Resolution::Milliseconds);
 
 	while(bytecode < globalEnd)
 	{
@@ -77,101 +109,97 @@ int Process(char* bytecode, long size)
 		if(code == OpCode::CALL)
 		{
 			int64_t value = *READ(int64_t);
-			memcpy(bytecode, &nativeFunctions.get(value), sizeof(int64_t));
+			if(nativeFunctions.has(value))
+			{
+				OpCode code = OpCode::CALLN;
+				bytecode -= sizeof(int64_t);
+				memcpy(bytecode, &code, sizeof(int64_t));
+				bytecode += sizeof(int64_t);
+				memcpy(bytecode, &nativeFunctions.get(value), sizeof(int64_t));
+			}
+			else
+			{
+				memcpy(bytecode, &functions.get(value), sizeof(int64_t));
+			}
 		}
 		bytecode += sizeof(int64_t);
 	}
 	bytecode -= sizeof(int64_t) * 2;
 	ASSERT(*READ(OpCode) == OpCode::EXIT, "Invalid bytecode. (Incorrect footer)");
-	int j = 0;
-loop:
-	++j;
-	if(j <= 1000000)
-	{
-		bytecode = globalStart;
-		for(;;)
-		{
-			OpCode code = *READ(OpCode);
-			bytecode += sizeof(int64_t);
-			OceanValue value = *READ(OceanValue);
-			bytecode += sizeof(OceanValue);
 
-			switch(code)
+	bytecode = globalStart;
+	for(;;)
+	{
+		OpCode code = *READ(OpCode);
+		bytecode += sizeof(int64_t);
+		OceanValue value = *READ(OceanValue);
+		bytecode += sizeof(OceanValue);
+
+		switch(code)
+		{
+			case OpCode::PUSH:
+				stack.Push(value);
+				break;
+			case OpCode::POP:
+				stack.Pop(value.asInt);
+				break;
+			case OpCode::COPY:
+				stack.CopyToTop(value.asInt);
+				break;
+			case OpCode::SWAP:
 			{
-				case OpCode::PUSH:
-					stack.Push(value);
-					break;
-				case OpCode::POP:
-					stack.Pop(value.asInt);
-					break;
-				case OpCode::COPY:
-					stack.CopyToTop(value.asInt);
-					break;
-				case OpCode::SWAP:
-				{
-					stack.SwapWithTop(value.asInt);
-					break;
-				}
-				case OpCode::JUMP:
-					bytecode = bytecodeStart + value.asInt;
-					break;
-				case OpCode::JUMPIF:
-					if(stack.Consume().asInt != 0)
-					{
-						bytecode = bytecodeStart + value.asInt;
-					}
-					break;
-				case OpCode::JUMPNIF:
-					if(stack.Consume().asInt == 0)
-					{
-						bytecode = bytecodeStart + value.asInt;
-					}
-					break;
-				case OpCode::CALL:
-					reinterpret_cast<Ocean::BoundFunction::FunctionType>(value.asInt)(stack);
-					break;
-				case OpCode::RETURN:
-					bytecode = reinterpret_cast<char*>(callStack.Consume().asInt);
-					break;
-				case OpCode::DECL:
-					varSize += value.asInt;
-					break;
-				case OpCode::LOAD:
-					stack.Push(variables[varSize + value.asInt]);
-					break;
-				case OpCode::STORE:
-					variables[varSize + value.asInt] = stack.Consume();
-					break;
-				case OpCode::DEL:
-					varSize -= value.asInt;
-					break;
-				case OpCode::EXIT:
-					goto loop;
-					return value.asInt;
-					break;
-				case OpCode::CREATE:
-				case OpCode::GET:
-				case OpCode::SET:
-				case OpCode::DESTROY:
-				default:
-					break;
+				stack.SwapWithTop(value.asInt);
+				break;
 			}
+			case OpCode::JUMP:
+				bytecode = bytecodeStart + value.asInt;
+				break;
+			case OpCode::JUMPIF:
+				if(stack.Consume().asInt != 0)
+				{
+					bytecode = bytecodeStart + value.asInt;
+				}
+				break;
+			case OpCode::JUMPNIF:
+				if(stack.Consume().asInt == 0)
+				{
+					bytecode = bytecodeStart + value.asInt;
+				}
+				break;
+			case OpCode::CALL:
+				callStack.Push(reinterpret_cast<int64_t>(bytecode));
+				bytecode = reinterpret_cast<char*>(value.asInt);
+				break;
+			case OpCode::CALLN:
+				reinterpret_cast<Ocean::BoundFunction::FunctionType>(value.asInt)(stack);
+				break;
+			case OpCode::RETURN:
+				bytecode = reinterpret_cast<char*>(callStack.Consume().asInt);
+				break;
+			case OpCode::DECL:
+				varSize += value.asInt;
+				break;
+			case OpCode::LOAD:
+				stack.Push(variables[varSize + value.asInt]);
+				break;
+			case OpCode::STORE:
+				variables[varSize + value.asInt] = stack.Consume();
+				break;
+			case OpCode::DEL:
+				varSize -= value.asInt;
+				break;
+			case OpCode::EXIT:
+				//goto loop;
+				return value.asInt;
+				break;
+			case OpCode::CREATE:
+			case OpCode::GET:
+			case OpCode::SET:
+			case OpCode::DESTROY:
+			default:
+				break;
 		}
 	}
-	int64_t end = sprawl::time::Now(sprawl::time::Resolution::Milliseconds);
-	//printf("Elapsed time: %ld ms\n", end - start);
-#undef READ
-#undef ASSERT
-//	printf("Variables:\n");
-//	for(int i = 0; i < stringId; ++i)
-//	{
-//		printf("\t%.*s - %ld\n", int(strings.get(i).length()), strings.get(i).c_str(), variables[i]);
-//	}
-//	printf("Stack:\n");
-//	for(auto i : stack)
-//	{
-//		printf("\t%ld\n", i);
-//	}
 	return 0;
 }
 
@@ -185,7 +213,38 @@ int main(int argc, char* argv[])
 
 	Ocean::Install();
 
-	FILE* f = fopen(argv[1], "r");
+	char filenameBuffer[256];
+	char* filename;
+
+	int len = strlen(argv[1]);
+	if(len < 4 || argv[1][len-4] != '.' || argv[1][len-3] != 'o' || argv[1][len-2] != 'c' || argv[1][len-1] != 'c')
+	{
+		sprintf(filenameBuffer, "%s.occ", argv[1]);
+		struct stat inFileStat;
+		struct stat outFileStat;
+
+		int ret = stat(argv[1], &inFileStat);
+		if(ret == -1)
+		{
+			puts("Cannot open file.");
+			return 1;
+		}
+		ret = stat(filenameBuffer, &outFileStat);
+		if(ret == -1 || inFileStat.st_mtime > outFileStat.st_mtime)
+		{
+			if(!H2O::CompileFile(argv[1], "test.h2o"))
+			{
+				return 1;
+			}
+		}
+		filename = filenameBuffer;
+	}
+	else
+	{
+		filename = argv[1];
+	}
+
+	FILE* f = fopen(filename, "r");
 	if(!f)
 	{
 		puts("Cannot open file.");

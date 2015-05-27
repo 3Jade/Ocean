@@ -29,7 +29,6 @@ void BytecodeWriter::StartFunction(const sprawl::String& name)
 
 void BytecodeWriter::EndFunction()
 {
-	APPEND_OP(*m_currentBuilder, OpCode::DEL, m_functions.back().scope.varCount);
 	m_builderStack.pop_back();
 	m_currentBuilder = m_builderStack.back();
 	m_scopeStack.pop_back();
@@ -228,6 +227,7 @@ sprawl::String BytecodeWriter::Finish()
 	int64_t sizeOfFunctions = 0;
 	for(auto& func : m_functions)
 	{
+		sizeOfFunctions += sizeof(int64_t);
 		sizeOfFunctions += sizeof(int64_t) + (func.scope.data.size() * sizeof(Instruction));
 	}
 
@@ -258,6 +258,9 @@ sprawl::String BytecodeWriter::Finish()
 	for(auto& func : m_functions)
 	{
 		memcpy(buf, &func.functionId, sizeof(int64_t));
+		buf += sizeof(int64_t);
+		int64_t scopeSize = func.scope.data.size() * (sizeof(OpCode) + sizeof(OceanValue));
+		memcpy(buf, &scopeSize, sizeof(int64_t));
 		buf += sizeof(int64_t);
 		for(auto& item : func.scope.data)
 		{

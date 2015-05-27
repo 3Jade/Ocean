@@ -1,52 +1,51 @@
-### STRINGS
+Group(expression, [ binary_operator grouping value ]);
+Group(expression, [ binary_operator grouping value ])
 
-AddSpan(sqstring, function=ReadString, start="'", end="'", escape="\'", nonewlines=true);
-AddSpan(dqstring, function=ReadString, start='"', end='"', escape='\"', nonewlines=true);
-AddRegexSpan(rawsqstring, function=ReadString, start='R(\[.*\])?"', end='"\1');
-AddRegexSpan(rawdqstring, function=ReadString, start="R(\[.*\])?'", end="'\1");
-	
-AddGroup(string, [ sqstring dqstring rawsqstring rawdqstring ]);
+# Basics
 
-AddLiteral(identifier, "[a-zA-Z][a-zA-Z0-9]*");
+Literal(identifier, "[a-zA-Z][a-zA-Z0-9]*");
+Literal(integer, function=ReadDecInt, "[0-9]+");
+Group(value, [ identifier integer ]);
 
+# Binary operators
 
-### FLOATS
+Expression(grouping, { "(" $expression ")" } );
 
-AddLiteral(decfloat, function=ReadDecFloat, "[0-9]+\.[0-9]+");
-AddGroup(float, [ decfloat ]);
+Expression(mult, function=Mult, { $expression<LHS> "*" $expression<RHS> });
+Expression(add, function=Add, { $expression<LHS> "+" $expression<RHS> });
+Expression(div, function=Div, { $expression<LHS> "/" $expression<RHS> });
+Expression(sub, function=Sub, { $expression<LHS> "-" $expression<RHS> });
 
+Group(binary_operator, [ add mult div sub ]);
 
-### INTEGERS
-	
-AddLiteral(decint, function=ReadDecInt, "[0-9]+");
-AddGroup(integer, [ decint ]);
+# Expression
 
+Group(expression, [ binary_operator grouping value function ]);
 
-### NUMBER
+# Variables
 
-AddGroup(number, [ integer float ]);
+Expression(initializer, { "=" $expression } );
 
+Expression(variable_declaration, function=DeclareVariable, { "var" $identifier $?initializer });
 
-### VALUE
+# Function definition
 
-AddGroup(value, [ identifier number string ]);
+Expression(parameter, function=DeclareParameter, { $identifier $?initializer });
+Expression(commaParameter, { "," $parameter });
+Expression(parameterCommaParameter, { $parameter $*commaParameter });
 
+Expression(function, function=Function, { "function" $identifier<function_name> "(" $?parameterCommaParameter<parameters> ")" "{" $*line<lines> "}" });
 
-### EXPRESSIONS
+# Function call
 
-AddExpression(grouping, { "(" $expression ")" } );
+Expression(commaValue, { "," $expression });
+Expression(valueCommaValue, { $expression $*commaValue });
 
-AddExpression(mult, function=mult, { $expression<LHS> "*" $expression<RHS> });
-AddExpression(add, function=add, { $expression<LHS> "+" $expression<RHS> });
+Expression(functionCall, function=CallFunction, { $identifier<function_name> "(" $?valueCommaValue<parameters> ")" });
 
-AddGroup(binary_operator, [ add mult ]);
-AddGroup(expression, [ binary_operator grouping value ]);
-
-AddExpression(initializer, { "=" $expression } );
-
-AddExpression(variable_declaration, function=declare_var, { "var" $identifier $?initializer });
-
+Group(lineItem, [ variable_declaration functionCall ]);
+Expression(line, { $lineItem ";" });
 
 ### Top level items
 
-SetTopLevelItems([ variable_declaration ]);
+TopLevelItems([ line function ]);

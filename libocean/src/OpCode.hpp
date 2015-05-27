@@ -17,6 +17,7 @@ enum class OpCode : int64_t
 
 	//Functions
 	CALL	= 0b001000, //Call the specified function. {arg} is a pointer into the strings table with the function's name.
+	CALLN	= 0b010100, //Call the specified native function. {arg} is a pointer directly to the function in memory, patched in at startup.
 	RETURN	= 0b001001, //Exit the specified function and return to previous instruction pointer location. {arg} is ignored.
 
 	//Variables
