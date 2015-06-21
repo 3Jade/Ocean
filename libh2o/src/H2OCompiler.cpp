@@ -360,22 +360,22 @@ bool H2OCompiler::Parse(const TokenList& tokens, sprawl::String& output)
 
 LiteralItem& H2OCompiler::AddLiteral(const sprawl::String& name, const sprawl::StringLiteral& regex, const LiteralItem::Translator& translator)
 {
-	auto it = m_literals.insert(LiteralItem(name, regex, translator), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_literals.insert(name, LiteralItem(name, regex, translator));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
 SpanItem& H2OCompiler::AddSpan(const sprawl::String& name, sprawl::StringLiteral const& startLiteral, sprawl::StringLiteral const& endLiteral, const SpanItem::Translator& translator)
 {
-	auto it = m_spans.insert(SpanItem(name, startLiteral, endLiteral, translator), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_spans.insert(name, SpanItem(name, startLiteral, endLiteral, translator));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
 RegexSpanItem& H2OCompiler::AddRegexSpan(const sprawl::String& name, sprawl::StringLiteral const& startRegex, sprawl::StringLiteral const& endLiteral, const RegexSpanItem::Translator& translator)
 {
-	auto it = m_regexSpans.insert(RegexSpanItem(name, startRegex, endLiteral, translator), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_regexSpans.insert(name, RegexSpanItem(name, startRegex, endLiteral, translator));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
@@ -392,8 +392,8 @@ ExpressionItem& H2OCompiler::AddExpression(const sprawl::String& name, std::init
 		}
 	}
 
-	auto it = m_expressions.insert(ExpressionItem(name, std::move(valueList), translator), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_expressions.insert(name, ExpressionItem(name, std::move(valueList), translator));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
@@ -407,8 +407,8 @@ ExpressionItem& H2OCompiler::AddExpression(const sprawl::String& name, StringLis
 		}
 	}
 
-	auto it = m_expressions.insert(ExpressionItem(name, std::move(valueList), translator), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_expressions.insert(name, ExpressionItem(name, std::move(valueList), translator));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
@@ -422,36 +422,36 @@ GroupItem& H2OCompiler::AddGroup(const sprawl::String& name, std::initializer_li
 		nameList.PushBack(sprawl::StringLiteral(name, strlen(name)));
 	}
 
-	auto it = m_groups.insert(GroupItem(name, std::move(nameList)), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_groups.insert(name, GroupItem(name, std::move(nameList)));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
 GroupItem& H2OCompiler::AddGroup(const sprawl::String& name, sprawl::collections::List<sprawl::StringLiteral>&& nameList)
 {
-	auto it = m_groups.insert(GroupItem(name, std::move(nameList)), name);
-	m_allItems.insert(&it.Value(), name);
+	auto it = m_groups.insert(name, GroupItem(name, std::move(nameList)));
+	m_allItems.insert(name, &it.Value());
 	return it.Value();
 }
 
 void H2OCompiler::AddTopLevelItem(const sprawl::String& itemName)
 {
-	m_topLevelItems.PushFront(m_allItems.get(itemName));
+	m_topLevelItems.PushBack(m_allItems.get(itemName));
 }
 
 void H2OCompiler::AddLiteralTranslator(const sprawl::String& name, const LiteralItem::Translator& translator)
 {
-	m_literalTranslators.insert(translator, name);
+	m_literalTranslators.insert(name, translator);
 }
 
 void H2OCompiler::AddExpressionTranslator(const sprawl::String& name, const ExpressionItem::Translator& translator)
 {
-	m_expressionTranslators.insert(translator, name);
+	m_expressionTranslators.insert(name, translator);
 }
 
 void H2OCompiler::AddSpanTranslator(const sprawl::String& name, const SpanItem::Translator& translator)
 {
-	m_spanTranslators.insert(translator, name);
+	m_spanTranslators.insert(name, translator);
 }
 
 LiteralItem::Translator H2OCompiler::GetLiteralTranslator(const sprawl::String& name)

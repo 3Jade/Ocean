@@ -2,7 +2,7 @@
 
 #include "Item.hpp"
 #include "../StringList.hpp"
-#include <sprawl/collections/ForwardList.hpp>
+#include <sprawl/collections/List.hpp>
 #include <functional>
 
 class ExpressionMatch;
@@ -19,6 +19,6 @@ public:
 
 private:
 	StringList m_values;
-	sprawl::collections::ForwardList<size_t> m_literals;
+	sprawl::collections::List<size_t> m_literals;
 	Translator m_translator;
 };

@@ -2,7 +2,6 @@
 
 #include <sprawl/string/String.hpp>
 #include "../TokenList.hpp"
-#include <sprawl/collections/ForwardList.hpp>
 
 class Match;
 class BytecodeWriter;

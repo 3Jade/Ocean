@@ -40,10 +40,10 @@ int Process(char* bytecode, long size)
 		int64_t strLength = *READ(int64_t);
 		bytecode += sizeof(int64_t);
 		sprawl::StringLiteral lit(bytecode, strLength);
-		strings.insert(lit, stringId);
+		strings.insert(stringId, lit);
 		if(Ocean::namedNativeFunctions.has(lit))
 		{
-			nativeFunctions.insert(Ocean::namedNativeFunctions.get(lit).function, stringId);
+			nativeFunctions.insert(stringId, Ocean::namedNativeFunctions.get(lit).function);
 		}
 		bytecode += strLength;
 		++stringId;
@@ -65,7 +65,7 @@ int Process(char* bytecode, long size)
 		bytecode += sizeof(int64_t);
 		int64_t functionLength = *READ(int64_t);
 		bytecode += sizeof(int64_t);
-		functions.insert(bytecode, funcNameOffset);
+		functions.insert(funcNameOffset, bytecode);
 
 		char* functionEnd = bytecode + functionLength;
 		while(bytecode < functionEnd)

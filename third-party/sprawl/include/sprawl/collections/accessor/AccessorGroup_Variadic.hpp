@@ -84,6 +84,14 @@ namespace sprawl
 					//
 				}
 
+				AccessorGroup_Impl(ValueType&& value)
+					: next(nullptr)
+					, prev(nullptr)
+					, m_value(std::move(value))
+				{
+					//
+				}
+
 				AccessorGroup_Impl(AccessorGroup_Impl const& other)
 					: next(nullptr)
 					, prev(nullptr)
@@ -172,6 +180,16 @@ namespace sprawl
 					//
 				}
 
+				AccessorGroup_Impl(ValueType&& value)
+					: Base(std::move(value))
+					, m_thisAccessor(this->m_value)
+					, m_nextThisAccessor(nullptr)
+					, m_prevThisAccessor(nullptr)
+					, m_thisIdx(0)
+				{
+					//
+				}
+
 				AccessorGroup_Impl(AccessorGroup_Impl const& other)
 					: Base(other)
 					, m_thisAccessor(other.m_thisAccessor)
@@ -182,8 +200,14 @@ namespace sprawl
 					//
 				}
 
-				template<typename Param1, typename... Params>
-				AccessorGroup_Impl(ValueType const& value, Param1 key, typename std::enable_if<std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
+				//Note: In all of these constructors, this->m_value isn't initialized yet.
+				//But accessors hold a reference to it, and don't do anything with it during initialization.
+				//So it's safe to give them the memory address even though we haven't initialized it yet.
+
+				//Case one: Exactly two parameters, first one is key type, second one is value type.
+				//Initialize with key, pass value up.
+				template<typename Param1, typename = typename std::enable_if<std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type>
+				AccessorGroup_Impl(Param1 const& key, ValueType const& value)
 					: Base(value)
 					, m_thisAccessor(this->m_value, key)
 					, m_nextThisAccessor(nullptr)
@@ -193,9 +217,11 @@ namespace sprawl
 					//
 				}
 
-				template<typename Param1, typename... Params>
-				AccessorGroup_Impl(ValueType const& value, Param1 key, Params... moreKeys, typename std::enable_if<std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
-					: Base(value, moreKeys...)
+				//Case two: Three or more parameters, first one is key type. Second one can't be value because value is last, so if we have a third parameter, second isn't value.
+				//Initialize with key, pass remaining parameters up.
+				template<typename Param1, typename Param2, typename... Params, typename = typename std::enable_if<std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type>
+				AccessorGroup_Impl(Param1 const& key, Param2&& nextParam, Params&&... moreParams)
+					: Base(std::forward<Param2>(nextParam), std::forward<Params>(moreParams)...)
 					, m_thisAccessor(this->m_value, key)
 					, m_nextThisAccessor(nullptr)
 					, m_prevThisAccessor(nullptr)
@@ -204,9 +230,11 @@ namespace sprawl
 					//
 				}
 
-				template<typename Param1>
-				AccessorGroup_Impl(ValueType const& value, Param1 firstParam, typename std::enable_if<!std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
-					: Base(value, firstParam)
+				//Case three: Exactly two parameters, first one is not key type, second one's type doesn't matter.
+				//Pass both parameters up.
+				template<typename Param1, typename Param2, typename = typename std::enable_if<!std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type>
+				AccessorGroup_Impl(Param1&& firstParam, Param2&& nextParam)
+					: Base(std::forward<Param1>(firstParam), std::forward<Param2>(nextParam))
 					, m_thisAccessor(this->m_value)
 					, m_nextThisAccessor(nullptr)
 					, m_prevThisAccessor(nullptr)
@@ -215,9 +243,11 @@ namespace sprawl
 					//
 				}
 
-				template<typename Param1, typename... Params>
-				AccessorGroup_Impl(ValueType const& value, Param1 firstParam, Params... moreKeys, typename std::enable_if<!std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
-					: Base(value, firstParam, moreKeys...)
+				//Case four: More than two parameters, first one is not key type.
+				//Pass all parameters up.
+				template<typename Param1, typename Param2, typename... Params, typename = typename std::enable_if<!std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type>
+				AccessorGroup_Impl(Param1&& firstParam, Param2&& secondParam, Params&&... moreKeys)
+					: Base(std::forward<Param1>(firstParam), std::forward<Param2>(secondParam), std::forward<Params>(moreKeys)...)
 					, m_thisAccessor(this->m_value)
 					, m_nextThisAccessor(nullptr)
 					, m_prevThisAccessor(nullptr)
@@ -290,15 +320,27 @@ namespace sprawl
 				typedef AccessorGroup_Impl<ValueType, AccessorGroup<ValueType, Accessors...>, 0, Accessors...> Base;
 				typedef Base* BasePtr;
 
+				template<typename Param1, typename Param2, typename... Params>
+				AccessorGroup(Param1&& firstParam, Param2&& secondParam, Params&&... params)
+					: Base(std::forward<Param1>(firstParam), std::forward<Param2>(secondParam), std::forward<Params>(params)...)
+				{
+					//
+				}
+
 				AccessorGroup(ValueType const& value)
 					: Base(value)
 				{
 					//
 				}
 
-				template<typename... Params>
-				AccessorGroup(ValueType const& value, Params... keys)
-					: Base(value, keys...)
+				AccessorGroup(ValueType&& value)
+					: Base(std::move(value))
+				{
+					//
+				}
+
+				AccessorGroup(AccessorGroup const& other)
+					: Base(other)
 				{
 					//
 				}

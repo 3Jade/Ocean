@@ -303,10 +303,10 @@ namespace sprawl
 				}
 
 				template<typename... Params>
-				inline iterator insert(ValueType const& val, Params... keys)
+				inline iterator insert(Params&&... keysAndValue)
 				{
 					mapped_type* newItem = (mapped_type*)allocator::alloc();
-					::new((void*)newItem) mapped_type(val, keys...);
+					::new((void*)newItem) mapped_type(std::forward<Params>(keysAndValue)...);
 
 					if(!check_and_insert_(newItem))
 					{

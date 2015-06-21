@@ -13,7 +13,7 @@
 	{
 		if(m_values[i].GetPtr()[0] != '$')
 		{
-			m_literals.PushFront(i);
+			m_literals.PushBack(i);
 		}
 	}
 }
@@ -169,7 +169,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 						auto it = matches.find(storeNameStr);
 						if(!it.Valid())
 						{
-							it = matches.insert(std::vector<std::vector< ::Match*>>(), storeNameStr);
+							it = matches.insert(storeNameStr, std::vector<std::vector< ::Match*>>());
 						}
 						it.Value().push_back(std::vector< ::Match*>());
 
@@ -326,7 +326,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 			auto it = matches.find(storeNameStr);
 			if(!it.Valid())
 			{
-				it = matches.insert(std::vector<std::vector< ::Match*>>(), storeNameStr);
+				it = matches.insert(storeNameStr, std::vector<std::vector< ::Match*>>());
 			}
 			it.Value().push_back(std::vector< ::Match*>());
 

@@ -33,21 +33,26 @@ public:
 	}
 
 	ForwardList(ForwardList const& other)
-	    : m_first(nullptr)
-	    , m_size(0)
+		: m_first(nullptr)
+		, m_size(0)
 	{
-	    for(auto& value : other)
-	    {
-		PushFront(value);
-	    }
+		m_first = new ItemType(other.m_first->m_value);
+		ItemType* item = m_first;
+		ItemType* otherItem = other.m_first;
+		while(otherItem->next)
+		{
+			item->next = new ItemType(otherItem->next->m_value);
+			item = item->next;
+			otherItem = otherItem->next;
+		}
 	}
 
 	ForwardList(ForwardList&& other)
-	    : m_first(other.m_first)
-	    , m_size(other.m_size)
+		: m_first(other.m_first)
+		, m_size(other.m_size)
 	{
-	    other.m_first = nullptr;
-	    other.m_size = nullptr;
+		other.m_first = nullptr;
+		other.m_size = 0;
 	}
 
 	void PushFront(T const& item)

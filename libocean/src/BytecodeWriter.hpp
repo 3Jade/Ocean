@@ -1,6 +1,5 @@
 #include <stdint.h>
 #include <sprawl/string/String.hpp>
-#include <sprawl/collections/ForwardList.hpp>
 #include <list>
 #include <sprawl/collections/HashMap.hpp>
 #include "OpCode.hpp"

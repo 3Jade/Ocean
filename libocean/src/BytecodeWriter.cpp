@@ -150,7 +150,7 @@ void BytecodeWriter::Function_Return()
 void BytecodeWriter::Variable_Declare(int64_t stringId)
 {
 	++m_currentScope->varCount;
-	m_currentScope->variables.insert(-m_currentScope->varCount, stringId);
+	m_currentScope->variables.insert(stringId, -m_currentScope->varCount);
 	APPEND_OP(*m_currentBuilder, OpCode::STORE, -m_currentScope->varCount);
 }
 
@@ -264,13 +264,13 @@ sprawl::String BytecodeWriter::Finish()
 		buf += sizeof(int64_t);
 		for(auto& item : func.scope.data)
 		{
-			offsets.insert(buf - outBuffer, int64_t(&item));
+			offsets.insert(int64_t(&item), buf - outBuffer);
 			switch(item.op)
 			{
 				case OpCode::JUMP:
 				case OpCode::JUMPIF:
 				case OpCode::JUMPNIF:
-					offsetsNeedingPatched.insert(item.value.asInt, buf - outBuffer);
+					offsetsNeedingPatched.insert(buf - outBuffer, item.value.asInt);
 					break;
 				default:
 					break;
@@ -287,13 +287,13 @@ sprawl::String BytecodeWriter::Finish()
 	buf += sizeof(sizeOfGlobalData);
 	for(auto& item : m_globalData.data)
 	{
-		offsets.insert(buf - outBuffer, int64_t(&item));
+		offsets.insert(int64_t(&item), buf - outBuffer);
 		switch(item.op)
 		{
 			case OpCode::JUMP:
 			case OpCode::JUMPIF:
 			case OpCode::JUMPNIF:
-				offsetsNeedingPatched.insert(item.value.asInt, buf - outBuffer);
+				offsetsNeedingPatched.insert(buf - outBuffer, item.value.asInt);
 				break;
 			default:
 				break;
@@ -327,7 +327,7 @@ int64_t BytecodeWriter::GetStringOffset(sprawl::String const& string) const
 	{
 		int64_t offset = m_strings.size();
 		m_strings.push_back(string);
-		m_stringOffsets.insert(offset, string);
+		m_stringOffsets.insert(string, offset);
 		return offset;
 	}
 }

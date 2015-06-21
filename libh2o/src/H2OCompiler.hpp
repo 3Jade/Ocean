@@ -7,6 +7,7 @@
 #include "items/RegexSpanItem.hpp"
 #include "items/GroupItem.hpp"
 #include "items/ExpressionItem.hpp"
+#include <sprawl/collections/List.hpp>
 
 class H2OCompiler
 {
@@ -56,7 +57,7 @@ private:
 	sprawl::collections::BasicHashMap<sprawl::String, SpanItem::Translator> m_spanTranslators;
 
 	sprawl::collections::BasicHashMap<sprawl::String, Item*> m_allItems;
-	sprawl::collections::ForwardList<Item*> m_topLevelItems;
+	sprawl::collections::List<Item*> m_topLevelItems;
 
 	bool m_significantWhitespace;
 };

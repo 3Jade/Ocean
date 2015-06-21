@@ -45,7 +45,7 @@ namespace OceanStatic
 
 void Ocean::Bind(sprawl::String const& name, BoundFunction::FunctionType function, int nParams, bool isConstExpr /*= false*/)
 {
-	namedNativeFunctions.insert(BoundFunction(function, nParams, isConstExpr), name);
+	namedNativeFunctions.insert(name, BoundFunction(function, nParams, isConstExpr));
 }
 
 void Ocean::Install()
