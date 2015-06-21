@@ -1,7 +1,6 @@
 #pragma once
 
 #include <sprawl/string/String.hpp>
-#include <sprawl/collections/HashMap.hpp>
 #include "../TokenList.hpp"
 #include <sprawl/collections/ForwardList.hpp>
 

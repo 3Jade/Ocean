@@ -31,8 +31,8 @@ int Process(char* bytecode, long size)
 	char const* stringsStart = bytecode;
 	char const* stringsEnd = bytecode + stringsLength;
 
-	sprawl::collections::HashMap<sprawl::String, sprawl::KeyAccessor<sprawl::String, int64_t>> strings;
-	sprawl::collections::HashMap<Ocean::BoundFunction::FunctionType, sprawl::KeyAccessor<Ocean::BoundFunction::FunctionType, int64_t>> nativeFunctions;
+	sprawl::collections::BasicHashMap<int64_t, sprawl::String> strings;
+	sprawl::collections::BasicHashMap<int64_t, Ocean::BoundFunction::FunctionType> nativeFunctions;
 
 	int64_t stringId = 0;
 	while(bytecode < stringsEnd)
@@ -57,7 +57,7 @@ int Process(char* bytecode, long size)
 	ASSERT(functionsLength + stringsLength + sizeof(int64_t) * 3 < size, "Invalid bytecode. (Corrupt Functions Table)");
 	char* functionsEnd = bytecode + functionsLength;
 
-	sprawl::collections::HashMap<char*, sprawl::KeyAccessor<char*, int64_t>> functions;
+	sprawl::collections::BasicHashMap<int64_t, char*> functions;
 
 	while(bytecode < functionsEnd)
 	{

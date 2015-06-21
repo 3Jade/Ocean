@@ -108,7 +108,7 @@ void BytecodeWriter::Function_Call(const sprawl::String& name)
 	auto it = Ocean::namedNativeFunctions.find(name);
 	if(it.Valid())
 	{
-		Ocean::BoundFunction& func = *it;
+		Ocean::BoundFunction& func = it.Value();
 		if(func.isConstExpr)
 		{
 			int i = 0;
@@ -250,8 +250,8 @@ sprawl::String BytecodeWriter::Finish()
 		buf += len;
 	}
 
-	sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> offsetsNeedingPatched;
-	sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> offsets;
+	sprawl::collections::BasicHashMap<int64_t, int64_t> offsetsNeedingPatched;
+	sprawl::collections::BasicHashMap<int64_t, int64_t> offsets;
 
 	memcpy(buf, &sizeOfFunctions, sizeof(sizeOfFunctions));
 	buf += sizeof(sizeOfFunctions);
@@ -305,9 +305,9 @@ sprawl::String BytecodeWriter::Finish()
 		buf += sizeof(OceanValue);
 	}
 
-	for(auto it = offsetsNeedingPatched.begin(); it.Valid(); ++it)
+	for(auto kvp : offsetsNeedingPatched)
 	{
-		memcpy(outBuffer + it.Key(), &offsets.get(it.Value()), sizeof(int64_t));
+		memcpy(outBuffer + kvp.Key(), &offsets.get(kvp.Value()), sizeof(int64_t));
 	}
 
 	sprawl::String str(outBuffer, size);

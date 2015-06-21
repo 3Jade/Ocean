@@ -71,7 +71,7 @@ private:
 	struct ScopeData
 	{
 		ScopeData() : variables(), data(), varCount(0) {}
-		sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, int64_t>> variables;
+		sprawl::collections::BasicHashMap<int64_t, int64_t> variables;
 		std::list<Instruction> data;
 		int64_t varCount;
 	};
@@ -87,7 +87,7 @@ private:
 	mutable std::list<sprawl::String> m_strings;
 	ScopeData m_globalData;
 
-	mutable sprawl::collections::HashMap<int64_t, sprawl::KeyAccessor<int64_t, sprawl::String>> m_stringOffsets;
+	mutable sprawl::collections::BasicHashMap<sprawl::String, int64_t> m_stringOffsets;
 
 	std::list<Instruction>* m_currentBuilder;
 	std::list<std::list<Instruction>*> m_builderStack;

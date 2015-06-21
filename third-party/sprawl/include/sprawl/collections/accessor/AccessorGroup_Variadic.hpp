@@ -5,10 +5,19 @@
 
 namespace sprawl
 {
+	template<typename A, typename B>
+	class MapIterator;
+
 	namespace collections
 	{
+		template< typename A, typename... B >
+		class HashMap;
+
 		namespace detail
 		{
+			template< typename A, typename B, size_t C, typename... D >
+			class HashMap_Impl;
+
 			template<typename ValueType, typename MostInheritedType, size_t index, typename... AdditionalAccessors>
 			class AccessorGroup_Impl;
 
@@ -16,6 +25,57 @@ namespace sprawl
 			class AccessorGroup_Impl<ValueType, MostInheritedType, index>
 			{
 			public:
+				ValueType& Value()
+				{
+					return m_value;
+				}
+
+				ValueType const& Value() const
+				{
+					return m_value;
+				}
+
+				ValueType& operator*()
+				{
+					return m_value;
+				}
+
+				ValueType* operator->()
+				{
+					return &m_value;
+				}
+
+
+				ValueType const& operator*() const
+				{
+					return m_value;
+				}
+
+				ValueType const* operator->() const
+				{
+					return &m_value;
+				}
+
+				inline NullAccessor& Accessor(Specialized<index>)
+				{
+					static NullAccessor accessor;
+					return accessor;
+				}
+
+				inline NullAccessor const& Accessor(Specialized<index>) const
+				{
+					static NullAccessor accessor;
+					return accessor;
+				}
+
+			protected:
+				template< typename A, typename... B >
+				friend class sprawl::collections::HashMap;
+				template< typename A, typename B, size_t C, typename... D >
+				friend class sprawl::collections::detail::HashMap_Impl;
+				template<typename A, typename B>
+				friend class sprawl::MapIterator;
+
 				AccessorGroup_Impl(ValueType const& value)
 					: next(nullptr)
 					, prev(nullptr)
@@ -72,12 +132,6 @@ namespace sprawl
 					//
 				}
 
-				inline NullAccessor& Accessor(Specialized<index>)
-				{
-					static NullAccessor accessor;
-					return accessor;
-				}
-
 				MostInheritedType* next;
 				MostInheritedType* prev;
 				ValueType m_value;
@@ -88,6 +142,25 @@ namespace sprawl
 			{
 			public:
 				typedef AccessorGroup_Impl<ValueType, MostInheritedType, index+1, AdditionalAccessors...> Base;
+
+				using Base::Accessor;
+				inline AccessorType& Accessor(Specialized<index>)
+				{
+					return m_thisAccessor;
+				}
+
+				inline AccessorType const& Accessor(Specialized<index>) const
+				{
+					return m_thisAccessor;
+				}
+
+			protected:
+				template< typename A, typename... B >
+				friend class sprawl::collections::HashMap;
+				template< typename A, typename B, size_t C, typename... D >
+				friend class sprawl::collections::detail::HashMap_Impl;
+				template<typename A, typename B>
+				friend class sprawl::MapIterator;
 
 				AccessorGroup_Impl(ValueType const& value)
 					: Base(value)
@@ -101,7 +174,7 @@ namespace sprawl
 
 				AccessorGroup_Impl(AccessorGroup_Impl const& other)
 					: Base(other)
-					, m_thisAccessor(this->m_value)
+					, m_thisAccessor(other.m_thisAccessor)
 					, m_nextThisAccessor(nullptr)
 					, m_prevThisAccessor(nullptr)
 					, m_thisIdx(0)
@@ -109,8 +182,19 @@ namespace sprawl
 					//
 				}
 
-				template<typename... Params>
-				AccessorGroup_Impl(ValueType const& value, typename AccessorType::arg_type const& key, Params... moreKeys)
+				template<typename Param1, typename... Params>
+				AccessorGroup_Impl(ValueType const& value, Param1 key, typename std::enable_if<std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
+					: Base(value)
+					, m_thisAccessor(this->m_value, key)
+					, m_nextThisAccessor(nullptr)
+					, m_prevThisAccessor(nullptr)
+					, m_thisIdx(0)
+				{
+					//
+				}
+
+				template<typename Param1, typename... Params>
+				AccessorGroup_Impl(ValueType const& value, Param1 key, Params... moreKeys, typename std::enable_if<std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
 					: Base(value, moreKeys...)
 					, m_thisAccessor(this->m_value, key)
 					, m_nextThisAccessor(nullptr)
@@ -120,9 +204,20 @@ namespace sprawl
 					//
 				}
 
-				template<typename... Params>
-				AccessorGroup_Impl(ValueType const& value, Params... moreKeys)
-					: Base(value, moreKeys...)
+				template<typename Param1>
+				AccessorGroup_Impl(ValueType const& value, Param1 firstParam, typename std::enable_if<!std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
+					: Base(value, firstParam)
+					, m_thisAccessor(this->m_value)
+					, m_nextThisAccessor(nullptr)
+					, m_prevThisAccessor(nullptr)
+					, m_thisIdx(0)
+				{
+					//
+				}
+
+				template<typename Param1, typename... Params>
+				AccessorGroup_Impl(ValueType const& value, Param1 firstParam, Params... moreKeys, typename std::enable_if<!std::is_constructible<typename AccessorType::arg_type const&, Param1>::value>::type* = nullptr)
+					: Base(value, firstParam, moreKeys...)
 					, m_thisAccessor(this->m_value)
 					, m_nextThisAccessor(nullptr)
 					, m_prevThisAccessor(nullptr)
@@ -179,12 +274,6 @@ namespace sprawl
 					m_thisHash = hash;
 				}
 
-				using Base::Accessor;
-				inline AccessorType& Accessor(Specialized<index>)
-				{
-					return m_thisAccessor;
-				}
-
 				AccessorType m_thisAccessor;
 
 				MostInheritedType* m_nextThisAccessor;
@@ -199,6 +288,8 @@ namespace sprawl
 			{
 			public:
 				typedef AccessorGroup_Impl<ValueType, AccessorGroup<ValueType, Accessors...>, 0, Accessors...> Base;
+				typedef Base* BasePtr;
+
 				AccessorGroup(ValueType const& value)
 					: Base(value)
 				{
@@ -210,6 +301,17 @@ namespace sprawl
 					: Base(value, keys...)
 				{
 					//
+				}
+
+				template<int i>
+				auto Key() const -> decltype(BasePtr(nullptr)->Accessor(Specialized<i>()).Key())
+				{
+					return this->Accessor(Specialized<i>()).Key();
+				}
+
+				auto Key() const -> decltype(BasePtr(nullptr)->Accessor(Specialized<0>()).Key())
+				{
+					return this->Accessor(Specialized<0>()).Key();
 				}
 			};
 		}

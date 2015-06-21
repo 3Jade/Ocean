@@ -1,5 +1,7 @@
 #pragma once
 
+#include <sprawl/collections/HashMap.hpp>
+
 #include "items/LiteralItem.hpp"
 #include "items/SpanItem.hpp"
 #include "items/RegexSpanItem.hpp"
@@ -38,22 +40,22 @@ public:
 
 	void EnableSignificantWhitespace() { m_significantWhitespace = true; }
 private:
-	sprawl::collections::HashMap<LiteralItem, sprawl::KeyAccessor<LiteralItem, sprawl::String>> m_literals;
+	sprawl::collections::BasicHashMap<sprawl::String, LiteralItem> m_literals;
 
-	sprawl::collections::HashMap<SpanItem, sprawl::KeyAccessor<SpanItem, sprawl::String>> m_spans;
+	sprawl::collections::BasicHashMap<sprawl::String, SpanItem> m_spans;
 
-	sprawl::collections::HashMap<RegexSpanItem, sprawl::KeyAccessor<RegexSpanItem, sprawl::String>> m_regexSpans;
+	sprawl::collections::BasicHashMap<sprawl::String, RegexSpanItem> m_regexSpans;
 
-	sprawl::collections::HashMap<GroupItem, sprawl::KeyAccessor<GroupItem, sprawl::String>> m_groups;
+	sprawl::collections::BasicHashMap<sprawl::String, GroupItem> m_groups;
 
-	sprawl::collections::HashMap<ExpressionItem, sprawl::KeyAccessor<ExpressionItem, sprawl::String>> m_expressions;
+	sprawl::collections::BasicHashMap<sprawl::String, ExpressionItem> m_expressions;
 	sprawl::collections::HashSet<sprawl::String> m_expressionLiterals;
 
-	sprawl::collections::HashMap<ExpressionItem::Translator, sprawl::KeyAccessor<ExpressionItem::Translator, sprawl::String>> m_expressionTranslators;
-	sprawl::collections::HashMap<LiteralItem::Translator, sprawl::KeyAccessor<LiteralItem::Translator, sprawl::String>> m_literalTranslators;
-	sprawl::collections::HashMap<SpanItem::Translator, sprawl::KeyAccessor<SpanItem::Translator, sprawl::String>> m_spanTranslators;
+	sprawl::collections::BasicHashMap<sprawl::String, ExpressionItem::Translator> m_expressionTranslators;
+	sprawl::collections::BasicHashMap<sprawl::String, LiteralItem::Translator> m_literalTranslators;
+	sprawl::collections::BasicHashMap<sprawl::String, SpanItem::Translator> m_spanTranslators;
 
-	sprawl::collections::HashMap<Item*, sprawl::KeyAccessor<Item*, sprawl::String>> m_allItems;
+	sprawl::collections::BasicHashMap<sprawl::String, Item*> m_allItems;
 	sprawl::collections::ForwardList<Item*> m_topLevelItems;
 
 	bool m_significantWhitespace;

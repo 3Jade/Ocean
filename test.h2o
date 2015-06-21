@@ -23,7 +23,9 @@ Group(expression, [ binary_operator grouping value functionCall ]);
 
 Expression(initializer, { "=" $expression } );
 
-Expression(variable_declaration, function=DeclareVariable, { "var" $identifier $?initializer });
+#========================================
+
+Expression(variable_declaration, function=DeclareVariable, { $identifier $initializer });
 
 # Function definition
 
@@ -31,7 +33,11 @@ Expression(parameter, function=DeclareParameter, { $identifier $?initializer });
 Expression(commaParameter, { "," $parameter });
 Expression(parameterCommaParameter, { $parameter $*commaParameter });
 
-Expression(function, function=Function, { "function" $identifier<function_name> "(" $?parameterCommaParameter<parameters> ")" "{" $*line<lines> "}" });
+#========================================
+
+EnableSignificantWhitespace();
+
+Expression(function, function=Function, { "def" $identifier<function_name> "(" $?parameterCommaParameter<parameters> ")" ":" >> $*line<lines> << });
 
 # Function call
 
@@ -41,7 +47,10 @@ Expression(valueCommaValue, { $expression $*commaValue });
 Expression(functionCall, function=CallFunction, { $identifier<function_name> "(" $?valueCommaValue<parameters> ")" });
 
 Group(lineItem, [ variable_declaration functionCall ]);
-Expression(line, { $lineItem ";" });
+
+#========================================
+
+Expression(line, { $lineItem });
 
 ### Top level items
 

@@ -222,8 +222,9 @@ bool H2O::CompileFile(char const* filename, char const* definitionFile)
 			FILE* f = fopen(outName, "w");
 			fwrite(result.c_str(), sizeof(char), result.length(), f);
 			fclose(f);
+			return true;
 		}
 	}
 
-	return true;
+	return false;
 }

@@ -248,11 +248,11 @@ namespace sprawl
 				using Base::get;
 				inline ValueType& get(typename Accessor::key_type const& key, Specialized<Idx> = Specialized<Idx>())
 				{
-					return get_(key)->m_value;
+					return get_(key)->Value();
 				}
 				inline ValueType const& get(typename Accessor::key_type const& key, Specialized<Idx> = Specialized<Idx>()) const
 				{
-					return get_(key)->m_value;
+					return get_(key)->Value();
 				}
 
 				using Base::find;
@@ -413,7 +413,7 @@ namespace sprawl
 				bool check_and_insert_(mapped_type* newItem)
 				{
 					Specialized<Idx> spec;
-					typename Accessor::key_type const& key = newItem->Accessor(spec).GetKey();
+					typename Accessor::key_type const& key = newItem->Accessor(spec).Key();
 
 					size_t hash = hash_(key);
 					newItem->SetHash(spec, hash);
@@ -422,7 +422,7 @@ namespace sprawl
 					mapped_type* hashMatch = m_thisKeyTable[index];
 					while (hashMatch)
 					{
-						if(hashMatch->Accessor(spec).GetKey() == key)
+						if(hashMatch->Accessor(spec).Key() == key)
 							return hashMatch;
 						hashMatch = hashMatch->Next(spec);
 					}
@@ -502,7 +502,7 @@ namespace sprawl
 					mapped_type* hashMatch = m_thisKeyTable[idx];
 					while(hashMatch)
 					{
-						if(hashMatch->GetHash(spec) == hash && hashMatch->Accessor(spec).GetKey() == key)
+						if(hashMatch->GetHash(spec) == hash && hashMatch->Accessor(spec).Key() == key)
 							return hashMatch;
 						hashMatch = hashMatch->Next(spec);
 					}
@@ -517,7 +517,7 @@ namespace sprawl
 					mapped_type* hashMatch = m_thisKeyTable[idx];
 					while(hashMatch)
 					{
-						if(hashMatch->GetHash(spec) == hash && hashMatch->Accessor(spec).GetKey() == key)
+						if(hashMatch->GetHash(spec) == hash && hashMatch->Accessor(spec).Key() == key)
 							return hashMatch;
 						hashMatch = hashMatch->Next(spec);
 					}

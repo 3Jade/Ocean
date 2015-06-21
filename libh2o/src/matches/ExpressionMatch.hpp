@@ -7,7 +7,7 @@
 class ExpressionMatch : public Match
 {
 public:
-	typedef sprawl::collections::HashMap<std::vector<std::vector<Match*>>, sprawl::KeyAccessor<std::vector<std::vector<Match*>>, sprawl::String>> MatchMap;
+	typedef sprawl::collections::BasicHashMap<sprawl::String, std::vector<std::vector<Match*>>> MatchMap;
 
 	ExpressionMatch(Item& item, TokenList&& tokens, MatchMap&& matches);
 	~ExpressionMatch();
@@ -22,15 +22,15 @@ public:
 	virtual void Print() const override
 	{
 		bool first1 = true;
-		for(auto it = m_matches.begin(); it.Valid(); ++it)
+		for(auto kvp : m_matches)
 		{
 			if(!first1)
 			{
 				printf(",");
 			}
-			printf(" { %.*s : [", (int)it.Key().length(), it.Key().c_str());
+			printf(" { %.*s : [", (int)kvp.Key().length(), kvp.Key().c_str());
 			bool first = true;
-			for(auto& vect : it.Value())
+			for(auto& vect : kvp.Value())
 			{
 				if(!first)
 				{

@@ -5,6 +5,8 @@
 
 using std::_Nil;
 
+#warning Support for visual studio 2012/MSVC11 is deprecated and will be removed soon. It may not work at all.
+
 namespace sprawl
 {
 	namespace collections

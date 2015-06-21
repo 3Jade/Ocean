@@ -26,7 +26,7 @@ namespace Ocean
 	void Bind(sprawl::String const& name, BoundFunction::FunctionType function, int nParams, bool isConstExpr = false);
 	void Install();
 
-	extern sprawl::collections::HashMap<BoundFunction, sprawl::KeyAccessor<BoundFunction, sprawl::String>> namedNativeFunctions;
+	extern sprawl::collections::BasicHashMap<sprawl::String, BoundFunction> namedNativeFunctions;
 }
 
 union OceanValue

@@ -3,7 +3,7 @@
 
 namespace Ocean
 {
-	sprawl::collections::HashMap<BoundFunction, sprawl::KeyAccessor<BoundFunction, sprawl::String>> namedNativeFunctions;
+	sprawl::collections::BasicHashMap<sprawl::String, BoundFunction> namedNativeFunctions;
 }
 
 namespace OceanStatic

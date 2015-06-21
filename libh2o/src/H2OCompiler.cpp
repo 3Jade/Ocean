@@ -126,8 +126,9 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 			}
 		}
 
-		for(auto& span : m_spans)
+		for(auto& kvp : m_spans)
 		{
+			auto& span = kvp.Value();
 			int ret = span.Find(sprawl::StringRef(ptr + offset, text.GetLength() - offset));
 			if(ret != -1)
 			{
@@ -155,8 +156,9 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 		}
 		if(!foundSpan)
 		{
-			for(auto& span : m_regexSpans)
+			for(auto& kvp : m_regexSpans)
 			{
+				auto& span = kvp.Value();
 				int ret = span.Find(sprawl::StringRef(ptr + offset, text.GetLength() - offset));
 				if(ret != -1)
 				{
@@ -196,8 +198,9 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 		}
 
 		partialMatch = sprawl::StringLiteral(ptr + offset, text.GetLength() - offset);
-		for(auto& literal : m_expressionLiterals)
+		for(auto& kvp : m_expressionLiterals)
 		{
+			auto& literal = kvp.Value();
 			if(literal.length() > partialMatch.GetLength())
 			{
 				continue;
@@ -233,8 +236,9 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 
 		if(!matched)
 		{
-			for(auto& literal : m_literals)
+			for(auto& kvp : m_literals)
 			{
+				auto& literal = kvp.Value();
 				int ret = literal.Find(partialMatch);
 				if(ret != -1)
 				{

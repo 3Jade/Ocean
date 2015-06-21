@@ -14,7 +14,7 @@ ExpressionMatch::~ExpressionMatch()
 {
 	for(auto& vect : m_matches)
 	{
-		for(auto& subvect : vect)
+		for(auto& subvect : vect.Value())
 		{
 			for(auto& item : subvect)
 			{

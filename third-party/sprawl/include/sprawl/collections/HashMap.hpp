@@ -18,6 +18,12 @@ namespace sprawl
 		{
 			//
 		};
+
+		template<typename KeyType, typename ValueType>
+		class BasicHashMap : public HashMap<ValueType, KeyAccessor<ValueType, KeyType>, _MAX_NIL_LIST>
+		{
+			//
+		};
 	}
 }
 #else
@@ -29,6 +35,27 @@ namespace sprawl
 	{
 		template<typename ValueType>
 		using HashSet = HashMap<ValueType, SelfAccessor<ValueType>>;
+
+		template<typename KeyType, typename ValueType>
+		using BasicHashMap = HashMap<ValueType, KeyAccessor<ValueType, KeyType>>;
+
+		template<typename KeyType, typename ValueType, KeyType(ValueType::*function)()>
+		using MemberHashMap = HashMap<ValueType, MemberAccessor<ValueType, KeyType, function>>;
+
+		template<typename KeyType, typename ValueType, KeyType(ValueType::*function)() const>
+		using ConstMemberHashMap = HashMap<ValueType, ConstMemberAccessor<ValueType, KeyType, function>>;
+
+		template<typename KeyType, typename ValueType, KeyType(std::remove_reference<decltype(*(ValueType(nullptr)))>::type::*function)()>
+		using PtrMemberHashMap = HashMap<ValueType, PtrMemberAccessor<typename std::remove_reference<decltype(*(ValueType(nullptr)))>::type, KeyType, function, ValueType>>;
+
+		template<typename KeyType, typename ValueType, KeyType(std::remove_reference<decltype(*(ValueType(nullptr)))>::type::*function)() const>
+		using PtrConstMemberHashMap = HashMap<ValueType, PtrConstMemberAccessor<typename std::remove_reference<decltype(*(ValueType(nullptr)))>::type, KeyType, function, ValueType>>;
+
+		template<typename KeyType, typename ValueType, KeyType(*function)(ValueType*)>
+		using FunctionHashMap = HashMap<ValueType, FunctionAccessor<ValueType, KeyType, function>>;
+
+		template<typename KeyType, typename ValueType, KeyType(*function)(typename std::remove_reference<decltype(*(ValueType(nullptr)))>::type*)>
+		using PtrFunctionHashMap = HashMap<ValueType, PtrFunctionAccessor<typename std::remove_reference<decltype(*(ValueType(nullptr)))>::type, KeyType, function, ValueType>>;
 	}
 }
 #endif

@@ -103,7 +103,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 		{
 			for(auto& vect : m_matches)
 			{
-				for(auto& subvect : vect)
+				for(auto& subvect : vect.Value())
 				{
 					for(auto& item : subvect)
 					{
@@ -395,7 +395,7 @@ bool ExpressionItem::Translate(BytecodeWriter& writer, ::Match const& match)
 	{
 		for(auto& vect : expressionMatch)
 		{
-			for(auto& subvect : vect)
+			for(auto& subvect : vect.Value())
 			{
 				for(auto& match : subvect)
 				{
