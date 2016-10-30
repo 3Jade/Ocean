@@ -2,6 +2,8 @@ Ocean is a WIP scripting language generator and virtual machine.
 
 The scripting language generator has exactly one goal: To be simple and easy to work with so that users can create their own scripting languages at a whim without long compile turnarounds or lots of time spent understanding abstract syntax trees and other compiler concepts. The syntax definition file is a simple, regular expression-based format that expands on Backus-Naur Form with a few additional new concepts. The compiler parses the syntax file at runtime and then uses that data to parse a script file, and convert it to bytecode, which will be the same for all user-defined scripting languages such that any Ocean-compiled file can import and work with any other file from any language. Once done, additional functionality not directly supported by the compiler will be able to be added by users via shared library modules loaded by the compiler.
 
+For examples of the language definition syntax, see test.h2o (which defines a python-like syntax) and test2.h2o (which defines a javascript-like syntax)
+
 The VM itself has several more concrete goals:
 - Easy embedding in C and C++ code to make it easy to use in environments such as game engines
 - Strong support for multithreading with no locks at the interpreter level
