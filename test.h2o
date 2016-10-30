@@ -1,0 +1,57 @@
+# Basics
+
+Literal(identifier, "[a-zA-Z][a-zA-Z0-9]*");
+Literal(integer, function=ReadDecInt, "[0-9]+");
+Group(value, [ identifier integer ]);
+
+# Binary operators
+
+Expression(grouping, { "(" $expression ")" } );
+
+Expression(mult, function=Mult, { $expression<LHS> "*" $expression<RHS> });
+Expression(div, function=Div, { $expression<LHS> "/" $expression<RHS> });
+Expression(add, function=Add, { $expression<LHS> "+" $expression<RHS> });
+Expression(sub, function=Sub, { $expression<LHS> "-" $expression<RHS> });
+
+Group(binary_operator, [ add sub mult div ]);
+
+# Expression
+
+Group(expression, [ binary_operator grouping value functionCall ]);
+
+# Variables
+
+Expression(initializer, { "=" $expression } );
+
+#========================================
+
+Expression(variable_declaration, function=DeclareVariable, { $identifier $initializer });
+
+# Function definition
+
+Expression(parameter, function=DeclareParameter, { $identifier $?initializer });
+Expression(commaParameter, { "," $parameter });
+Expression(parameterCommaParameter, { $parameter $*commaParameter });
+
+#========================================
+
+EnableSignificantWhitespace();
+
+Expression(function, function=Function, { "def" $identifier<function_name> "(" $?parameterCommaParameter<parameters> ")" ":" >> $*line<lines> << });
+
+# Function call
+
+Expression(commaValue, { "," $expression });
+Expression(valueCommaValue, { $expression $*commaValue });
+
+Expression(functionCall, function=CallFunction, { $identifier<function_name> "(" $?valueCommaValue<parameters> ")" });
+
+Group(lineItem, [ variable_declaration functionCall ]);
+
+#========================================
+
+Expression(line, { $lineItem });
+
+### Top level items
+
+TopLevelItems([ line function ]);
