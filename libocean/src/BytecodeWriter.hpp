@@ -51,6 +51,7 @@ public:
 	void Variable_Declare(int64_t stringId);
 	void Variable_Load(int64_t stringId);
 	void Variable_Store(int64_t stringId);
+	void Variable_Memo(int64_t stringId);
 
 	void OceanObj_Create(sprawl::String const& className);
 	void OceanObj_GetAttr(sprawl::String const& attrName);
@@ -66,7 +67,6 @@ public:
 
 private:
 
-
 	struct ScopeData
 	{
 		ScopeData() : variables(), data(), varCount(0) {}
@@ -81,7 +81,13 @@ private:
 		int64_t functionId;
 		ScopeData scope;
 	};
-
+	
+	void Optimize(ScopeData& scope);
+	
+#if DEBUG_TRACE
+	size_t deletedInstructions{0};
+#endif
+	
 	std::list<FunctionData> m_functions;
 	mutable std::list<sprawl::String> m_strings;
 	ScopeData m_globalData;
@@ -93,6 +99,8 @@ private:
 
 	ScopeData* m_currentScope;
 	std::list<ScopeData*> m_scopeStack;
+	
+	sprawl::collections::BasicHashMap<int64_t, int64_t> m_funcParameterCounts;
 };
 
 static_assert(sizeof(int64_t) == sizeof(double), "Double is not 64 bits and is required to be.");

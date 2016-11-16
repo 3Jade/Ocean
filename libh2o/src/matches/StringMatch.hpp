@@ -17,7 +17,7 @@ public:
 	}
 
 	static StringMatch* Create(Item& baseItem, TokenList&& tokens, sprawl::StringRef const& stringData);
-	virtual void Release();
+	virtual void Release() override;
 private:
 	sprawl::StringRef m_stringData;
 };
