@@ -1,6 +1,8 @@
 #include "BytecodeWriter.hpp"
 #include "Stack.hpp"
 #include <cassert>
+#include "sprawl/collections/HashMap.hpp"
+#include <vector>
 
 #define APPEND_OP(itemList, opCode, value) (itemList).push_back({opCode, OceanValue(value)})
 
@@ -131,12 +133,20 @@ void BytecodeWriter::Function_Call(const sprawl::String& name)
 				{
 					stack.Push(OceanValue(m_currentBuilder->back().value.asInt));
 					m_currentBuilder->pop_back();
+#if DEBUG_TRACE
+					++deletedInstructions;
+#endif
 				}
 				func.function(stack);
 				int64_t result = stack.Consume().asInt;
 				APPEND_OP(*m_currentBuilder, OpCode::PUSH, result);
 				return;
 			}
+		}
+		if(func.nonDestructiveFunction)
+		{
+			m_funcParameterCounts.insert(GetStringOffset(name), func.nParams);
+			APPEND_OP(*m_currentBuilder, OpCode::CALLND, GetStringOffset(name));
 		}
 	}
 	APPEND_OP(*m_currentBuilder, OpCode::CALL, GetStringOffset(name));
@@ -162,6 +172,11 @@ void BytecodeWriter::Variable_Load(int64_t stringId)
 void BytecodeWriter::Variable_Store(int64_t stringId)
 {
 	APPEND_OP(*m_currentBuilder, OpCode::STORE, m_currentScope->variables.get(stringId));
+}
+
+void BytecodeWriter::Variable_Memo(int64_t stringId)
+{
+	APPEND_OP(*m_currentBuilder, OpCode::MEMO, m_currentScope->variables.get(stringId));
 }
 
 void BytecodeWriter::OceanObj_Create(const sprawl::String& className)
@@ -194,28 +209,220 @@ BytecodeWriter::Instruction const* BytecodeWriter::GetCurrentInstruction()
 	return &m_currentBuilder->back();
 }
 
+void BytecodeWriter::Optimize(ScopeData& scope)
+{
+	auto& data = scope.data;
+	// Find CALLND/CALL pairs and choose only one of them, delete the other
+	// CALLND is an optimization for the case of LOAD N; CALL; LOAD N where the call is capable of completing without changing the stack
+	// This selects a version of the call that reads the stack without popping from it and doesn't write to it
+	for(auto it = data.begin(); it != data.end(); )
+	{
+		auto prior_it = it++;
+		if(it->op == OpCode::CALLND)
+		{
+			int64_t nParams = m_funcParameterCounts.get(it->value.asInt);
+			
+			auto callnd_it = it++;
+			auto call_it = it++;
+
+			std::vector<int64_t> prev_stack;
+			
+			bool can_optimize = true;
+			
+			auto backward_it = callnd_it;
+			--backward_it;
+			bool pop = false;
+			for(;backward_it != data.begin(); --backward_it)
+			{
+				if(backward_it->op == OpCode::CALL)
+				{
+					can_optimize = false;
+					break;
+				}
+				
+				if(backward_it->op == OpCode::POP || backward_it->op == OpCode::STORE)
+				{
+					pop = true;
+					continue;
+				}
+				
+				if(backward_it->op == OpCode::LOAD)
+				{
+					if(pop) {
+						pop = false;
+						continue;
+					}
+					prev_stack.push_back(backward_it->value.asInt);
+					if(prev_stack.size() == nParams)
+					{
+						break;
+					}
+				}
+			}
+			
+			if(!can_optimize)
+			{
+				data.erase(callnd_it);
+				continue;
+			}
+			
+			std::vector<int64_t> next_stack;
+			auto forward_it = call_it;
+			++forward_it;
+			for(;forward_it != data.end(); --forward_it)
+			{
+				if(forward_it->op == OpCode::CALL)
+				{
+					can_optimize = false;
+					break;
+				}
+				
+				if(forward_it->op == OpCode::POP || forward_it->op == OpCode::STORE)
+				{
+					next_stack.pop_back();
+					continue;
+				}
+				
+				if(forward_it->op == OpCode::LOAD)
+				{
+					if(pop) {
+						pop = false;
+						continue;
+					}
+					next_stack.push_back(forward_it->value.asInt);
+					if(next_stack.size() == nParams)
+					{
+						break;
+					}
+				}
+			}
+			
+			if(!can_optimize)
+			{
+				data.erase(callnd_it);
+				continue;
+			}
+			
+			if(prev_stack == next_stack)
+			{
+				data.erase(call_it);
+				auto delete_post_load = it++;
+				data.erase(delete_post_load);
+#if DEBUG_TRACE
+				++deletedInstructions;
+#endif
+			}
+			else
+			{
+				data.erase(callnd_it);
+			}
+		}
+	}	
+	
+	// Replace pairs of STORE/LOAD on the same value with MEMO
+	for(auto it = data.begin(); it != data.end(); )
+	{
+		auto delete_it = it++;
+		if(delete_it->op == OpCode::STORE && it->op == OpCode::LOAD && delete_it->value == it->value)
+		{
+			it->op = OpCode::MEMO;
+#if DEBUG_TRACE
+			++deletedInstructions;
+#endif
+			data.erase(delete_it);
+			++it;
+		}
+	}
+	
+	// Find variables that have only STORE or MEMO operations and elide them entirely
+	sprawl::collections::HashSet<int64_t> all;
+	sprawl::collections::HashSet<int64_t> loaded;
+	for(auto& item : data)
+	{
+		if(item.op == OpCode::STORE || item.op == OpCode::MEMO || item.op == OpCode::LOAD)
+		{
+			all.insert(item.value.asInt);
+			if(item.op == OpCode::LOAD)
+			{
+				loaded.insert(item.value.asInt);
+			}
+		}
+	}
+	
+	if(all.size() != loaded.size())
+	{
+		sprawl::collections::BasicHashMap<int64_t, int64_t> variableRenumber;
+		int64_t num = -1;
+		
+		for(auto& it : loaded)
+		{
+			all.erase(it.Value());
+			variableRenumber.insert(it.Value(), num--);
+		}
+		
+		for(auto it = data.begin(); it != data.end(); )
+		{
+			auto delete_it = it++;
+			if((delete_it->op == OpCode::STORE || delete_it->op == OpCode::MEMO) && all.has(delete_it->value.asInt))
+			{
+				data.erase(delete_it);
+#if DEBUG_TRACE
+				++deletedInstructions;
+#endif
+			}
+		}
+		scope.varCount = loaded.size();
+		if(scope.varCount != 0)
+		{
+			for(auto& item : data)
+			{
+				if(item.op == OpCode::STORE || item.op == OpCode::MEMO || item.op == OpCode::LOAD)
+				{
+					item.value = OceanValue(variableRenumber.get(item.value.asInt));
+				}
+			}
+		}
+	}
+	
+	//TODO: Remove elided variables from strings table.
+}
+
 sprawl::String BytecodeWriter::Finish()
 {
 	assert(m_scopeStack.size() == 1);
 
 	unsigned char header[sizeof(int64_t)] = { 0x0C, 0xEA, 0, 0, 0, 0, 0, 0 };
-
-	m_globalData.data.push_front({OpCode::DECL, OceanValue(m_globalData.varCount)});
-	m_globalData.data.push_back({OpCode::DEL, OceanValue(m_globalData.varCount)});
+	
+	Optimize(m_globalData);
+	if(m_globalData.varCount != 0)
+	{
+		m_globalData.data.push_front({OpCode::DECL, OceanValue(m_globalData.varCount)});
+		m_globalData.data.push_back({OpCode::DEL, OceanValue(m_globalData.varCount)});
+	}
 	m_globalData.data.push_back({OpCode::EXIT, OceanValue(0L)});
-
+	
+#if DEBUG_TRACE
+	size_t instructions = m_globalData.data.size();
+#endif
+	
 	for(auto& func : m_functions)
 	{
-		func.scope.data.push_front({OpCode::DECL, OceanValue(func.scope.varCount)});
+		Optimize(func.scope);
+		if(func.scope.varCount != 0)
+		{
+			func.scope.data.push_front({OpCode::DECL, OceanValue(func.scope.varCount)});
+		}
 		for(auto it = func.scope.data.begin(); it != func.scope.data.end(); ++it)
 		{
 			if(it->op == OpCode::RETURN)
 			{
-				func.scope.data.insert(it, {OpCode::DEL, OceanValue(func.scope.varCount)});
+				it->value = func.scope.varCount;
 			}
 		}
-		func.scope.data.push_back({OpCode::DEL, OceanValue(func.scope.varCount)});
-		func.scope.data.push_back({OpCode::RETURN, OceanValue(0L)});
+		func.scope.data.push_back({OpCode::RETURN, OceanValue(func.scope.varCount)});
+#if DEBUG_TRACE
+		instructions += func.scope.data.size();
+#endif
 	}
 
 	int64_t sizeOfStrings = 0;
@@ -223,6 +430,11 @@ sprawl::String BytecodeWriter::Finish()
 	{
 		sizeOfStrings += sizeof(int64_t) + str.length();
 	}
+	int64_t padding = 8 - (sizeOfStrings % 8);
+	if(padding == 8) {
+		padding = 0;
+	}
+	int64_t paddedSizeOfStrings = sizeOfStrings + padding;
 
 	int64_t sizeOfFunctions = 0;
 	for(auto& func : m_functions)
@@ -233,7 +445,7 @@ sprawl::String BytecodeWriter::Finish()
 
 	int64_t sizeOfGlobalData = m_globalData.data.size() * sizeof(Instruction);
 
-	int size = sizeof(header) + sizeOfStrings + sizeOfFunctions + sizeOfGlobalData + sizeof(int64_t) * 3;
+	int size = sizeof(header) + paddedSizeOfStrings + sizeOfFunctions + sizeOfGlobalData + sizeof(int64_t) * 3;
 	char* outBuffer = new char[size];
 	char* buf = outBuffer;
 
@@ -249,6 +461,9 @@ sprawl::String BytecodeWriter::Finish()
 		memcpy(buf, str.c_str(), len);
 		buf += len;
 	}
+	char paddingBuf[8] = {0};
+	memcpy(buf, paddingBuf, padding);
+	buf += padding;
 
 	sprawl::collections::BasicHashMap<int64_t, int64_t> offsetsNeedingPatched;
 	sprawl::collections::BasicHashMap<int64_t, int64_t> offsets;
@@ -312,6 +527,10 @@ sprawl::String BytecodeWriter::Finish()
 
 	sprawl::String str(outBuffer, size);
 	delete[] outBuffer;
+	
+#if DEBUG_TRACE
+	printf("Optimizer removed %zu / %zu instructions. Final instruction count: %zu\n", deletedInstructions, instructions + deletedInstructions, instructions);
+#endif
 
 	return str;
 }
