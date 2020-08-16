@@ -4,28 +4,28 @@
 #include "../../../libocean/src/BytecodeWriter.hpp"
 #include "../H2OCompiler.hpp"
 
-LiteralItem::LiteralItem(sprawl::String const& name, sprawl::StringLiteral regex, Translator const& translator)
+LiteralItem::LiteralItem(std::string_view const& name, std::string_view regex, Translator const& translator)
 	: Item(name)
-	, m_regex(re2::StringPiece(regex.GetPtr(), regex.GetLength()))
+	, m_regex(re2::StringPiece(regex.data(), regex.length()))
 	, m_regexBase(regex)
 	, m_translator(translator)
 	, m_startHint(nullptr, 0)
 {
 	int hintLength = 0;
-	char const* const regexPtr = regex.GetPtr();
-	while(hintLength < regex.GetLength() && (isalpha(regexPtr[hintLength]) || isdigit(regexPtr[hintLength])))
+	char const* const regexPtr = regex.data();
+	while(hintLength < regex.length() && (isalpha(regexPtr[hintLength]) || isdigit(regexPtr[hintLength])))
 	{
 		++hintLength;
 	}
 	if(hintLength != 0)
 	{
-		m_startHint = sprawl::StringLiteral(regexPtr, hintLength);
+		m_startHint = std::string_view(regexPtr, hintLength);
 	}
 }
 
 LiteralItem::LiteralItem(LiteralItem const& other)
 	: Item(other)
-	, m_regex(re2::StringPiece(other.m_regexBase.GetPtr(), other.m_regexBase.GetLength()))
+	, m_regex(re2::StringPiece(other.m_regexBase.data(), other.m_regexBase.length()))
 	, m_regexBase(other.m_regexBase)
 	, m_translator(other.m_translator)
 	, m_startHint(other.m_startHint)
@@ -33,28 +33,28 @@ LiteralItem::LiteralItem(LiteralItem const& other)
 
 }
 
-size_t LiteralItem::GroupNameToIndex(sprawl::String const& name)
+size_t LiteralItem::GroupNameToIndex(std::string_view const& name)
 {
-	return m_regex.NamedCapturingGroups().at(name.toStdString());
+	return m_regex.NamedCapturingGroups().at(std::string(name));
 }
 
-int LiteralItem::Find(sprawl::StringLiteral const& text)
+int LiteralItem::Find(std::string_view const& text)
 {
-	if(m_startHint.GetLength() != 0)
+	if(m_startHint.length() != 0)
 	{
-		if(m_startHint.GetLength() > text.GetLength())
+		if(m_startHint.length() > text.length())
 		{
 			return -1;
 		}
-		if(memcmp(m_startHint.GetPtr(), text.GetPtr(), m_startHint.GetLength()) != 0)
+		if(memcmp(m_startHint.data(), text.data(), m_startHint.length()) != 0)
 		{
 			return -1;
 		}
 	}
-	re2::StringPiece piece(text.GetPtr(), text.GetLength());
+	re2::StringPiece piece(text.data(), text.length());
 	if(RE2::ConsumeN(&piece, m_regex, nullptr, 0))
 	{
-		return text.GetLength() - piece.length();
+		return text.length() - piece.length();
 	}
 	return -1;
 }
@@ -65,7 +65,7 @@ int LiteralItem::Find(sprawl::StringLiteral const& text)
 	int nArgs = m_regex.NumberOfCapturingGroups();
 	RE2::Arg* args = (RE2::Arg*)alloca(sizeof(RE2::Arg) * nArgs);
 	re2::StringPiece* pieces = new re2::StringPiece[nArgs + 1];
-	pieces[0] = re2::StringPiece(token.Text().GetPtr(), token.Text().GetLength());
+	pieces[0] = re2::StringPiece(token.Text().data(), token.Text().length());
 	for(int i = 0; i < nArgs; ++i)
 	{
 		args[i] = RE2::Arg(&pieces[i+1]);

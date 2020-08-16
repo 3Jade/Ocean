@@ -1,6 +1,6 @@
 #pragma once
 
-#include <sprawl/string/String.hpp>
+#include <string_view>
 #include "../TokenList.hpp"
 
 class Match;
@@ -10,13 +10,13 @@ class H2OCompiler;
 class Item
 {
 public:
-	Item(sprawl::String const& name);
+	Item(std::string_view const& name);
 
-	sprawl::String const& GetName();
+	std::string_view const& GetName();
 
 	virtual ::Match* Match(H2OCompiler const& compiler, TokenList const& tokens) = 0;
 
 	virtual bool Translate(BytecodeWriter& writer, ::Match const& match) = 0;
 private:
-	sprawl::String m_name;
+	std::string_view m_name;
 };

@@ -1,8 +1,9 @@
 #include "BytecodeWriter.hpp"
 #include "Stack.hpp"
 #include <cassert>
-#include "sprawl/collections/HashMap.hpp"
+#include <SkipProbe/SkipProbe.hpp>
 #include <vector>
+#include <unordered_set>
 
 #define APPEND_OP(itemList, opCode, value) (itemList).push_back({opCode, OceanValue(value)})
 
@@ -20,7 +21,7 @@ BytecodeWriter::BytecodeWriter()
 	m_scopeStack.push_back(m_currentScope);
 }
 
-void BytecodeWriter::StartFunction(const sprawl::String& name)
+void BytecodeWriter::StartFunction(std::string_view const& name)
 {
 	m_functions.push_back(FunctionData(GetStringOffset(name)));
 	m_currentBuilder = &m_functions.back().scope.data;
@@ -42,7 +43,7 @@ void BytecodeWriter::Stack_Push(int64_t value)
 	APPEND_OP(*m_currentBuilder, OpCode::PUSH, value);
 }
 
-void BytecodeWriter::Stack_Push(const sprawl::String& value)
+void BytecodeWriter::Stack_Push(std::string_view const& value)
 {
 	APPEND_OP(*m_currentBuilder, OpCode::PUSH, GetStringOffset(value));
 }
@@ -89,28 +90,28 @@ void BytecodeWriter::JumpIfNot(int64_t target)
 
 BytecodeWriter::DeferredJump BytecodeWriter::Jump_DeferTarget()
 {
-	APPEND_OP(*m_currentBuilder, OpCode::JUMP, 0L);
+	APPEND_OP(*m_currentBuilder, OpCode::JUMP, I64(0));
 	return DeferredJump(&m_currentBuilder->back());
 }
 
 BytecodeWriter::DeferredJump BytecodeWriter::JumpIf_DeferTarget()
 {
-	APPEND_OP(*m_currentBuilder, OpCode::JUMPIF, 0L);
+	APPEND_OP(*m_currentBuilder, OpCode::JUMPIF, I64(0));
 	return DeferredJump(&m_currentBuilder->back());
 }
 
 BytecodeWriter::DeferredJump BytecodeWriter::JumpIfNot_DeferTarget()
 {
-	APPEND_OP(*m_currentBuilder, OpCode::JUMPNIF, 0L);
+	APPEND_OP(*m_currentBuilder, OpCode::JUMPNIF, I64(0));
 	return DeferredJump(&m_currentBuilder->back());
 }
 
-void BytecodeWriter::Function_Call(const sprawl::String& name)
+void BytecodeWriter::Function_Call(std::string_view const& name)
 {
 	auto it = Ocean::namedNativeFunctions.find(name);
 	if(it.Valid())
 	{
-		Ocean::BoundFunction& func = it.Value();
+		Ocean::BoundFunction& func = it->value;
 		if(func.isConstExpr)
 		{
 			int i = 0;
@@ -145,7 +146,7 @@ void BytecodeWriter::Function_Call(const sprawl::String& name)
 		}
 		if(func.nonDestructiveFunction)
 		{
-			m_funcParameterCounts.insert(GetStringOffset(name), func.nParams);
+			m_funcParameterCounts.Insert(GetStringOffset(name), func.nParams);
 			APPEND_OP(*m_currentBuilder, OpCode::CALLND, GetStringOffset(name));
 		}
 	}
@@ -154,49 +155,49 @@ void BytecodeWriter::Function_Call(const sprawl::String& name)
 
 void BytecodeWriter::Function_Return()
 {
-	APPEND_OP(*m_currentBuilder, OpCode::RETURN, 0L);
+	APPEND_OP(*m_currentBuilder, OpCode::RETURN, I64(0));
 }
 
 void BytecodeWriter::Variable_Declare(int64_t stringId)
 {
 	++m_currentScope->varCount;
-	m_currentScope->variables.insert(stringId, -m_currentScope->varCount);
+	m_currentScope->variables.Insert(stringId, -m_currentScope->varCount);
 	APPEND_OP(*m_currentBuilder, OpCode::STORE, -m_currentScope->varCount);
 }
 
 void BytecodeWriter::Variable_Load(int64_t stringId)
 {
-	APPEND_OP(*m_currentBuilder, OpCode::LOAD, m_currentScope->variables.get(stringId));
+	APPEND_OP(*m_currentBuilder, OpCode::LOAD, m_currentScope->variables.Get(stringId));
 }
 
 void BytecodeWriter::Variable_Store(int64_t stringId)
 {
-	APPEND_OP(*m_currentBuilder, OpCode::STORE, m_currentScope->variables.get(stringId));
+	APPEND_OP(*m_currentBuilder, OpCode::STORE, m_currentScope->variables.Get(stringId));
 }
 
 void BytecodeWriter::Variable_Memo(int64_t stringId)
 {
-	APPEND_OP(*m_currentBuilder, OpCode::MEMO, m_currentScope->variables.get(stringId));
+	APPEND_OP(*m_currentBuilder, OpCode::MEMO, m_currentScope->variables.Get(stringId));
 }
 
-void BytecodeWriter::OceanObj_Create(const sprawl::String& className)
+void BytecodeWriter::OceanObj_Create(std::string_view const& className)
 {
 	APPEND_OP(*m_currentBuilder, OpCode::CREATE, GetStringOffset(className));
 }
 
-void BytecodeWriter::OceanObj_GetAttr(const sprawl::String& attrName)
+void BytecodeWriter::OceanObj_GetAttr(std::string_view const& attrName)
 {
 	APPEND_OP(*m_currentBuilder, OpCode::GET, GetStringOffset(attrName));
 }
 
-void BytecodeWriter::OceanObj_SetAttr(const sprawl::String& attrName)
+void BytecodeWriter::OceanObj_SetAttr(std::string_view const& attrName)
 {
 	APPEND_OP(*m_currentBuilder, OpCode::SET, GetStringOffset(attrName));
 }
 
 void BytecodeWriter::OceanObj_Destroy()
 {
-	APPEND_OP(*m_currentBuilder, OpCode::DESTROY, 0L);
+	APPEND_OP(*m_currentBuilder, OpCode::DESTROY, I64(0));
 }
 
 void BytecodeWriter::Exit(int64_t exitCode)
@@ -220,7 +221,7 @@ void BytecodeWriter::Optimize(ScopeData& scope)
 		auto prior_it = it++;
 		if(it->op == OpCode::CALLND)
 		{
-			int64_t nParams = m_funcParameterCounts.get(it->value.asInt);
+			int64_t nParams = m_funcParameterCounts.Get(it->value.asInt);
 			
 			auto callnd_it = it++;
 			auto call_it = it++;
@@ -335,8 +336,8 @@ void BytecodeWriter::Optimize(ScopeData& scope)
 	}
 	
 	// Find variables that have only STORE or MEMO operations and elide them entirely
-	sprawl::collections::HashSet<int64_t> all;
-	sprawl::collections::HashSet<int64_t> loaded;
+	std::unordered_set<int64_t> all;
+	std::unordered_set<int64_t> loaded;
 	for(auto& item : data)
 	{
 		if(item.op == OpCode::STORE || item.op == OpCode::MEMO || item.op == OpCode::LOAD)
@@ -351,19 +352,19 @@ void BytecodeWriter::Optimize(ScopeData& scope)
 	
 	if(all.size() != loaded.size())
 	{
-		sprawl::collections::BasicHashMap<int64_t, int64_t> variableRenumber;
+		SkipProbe::HashMap<int64_t, int64_t> variableRenumber;
 		int64_t num = -1;
 		
-		for(auto& it : loaded)
+		for(auto& value : loaded)
 		{
-			all.erase(it.Value());
-			variableRenumber.insert(it.Value(), num--);
+			all.erase(value);
+			variableRenumber.Insert(value, num--);
 		}
 		
 		for(auto it = data.begin(); it != data.end(); )
 		{
 			auto delete_it = it++;
-			if((delete_it->op == OpCode::STORE || delete_it->op == OpCode::MEMO) && all.has(delete_it->value.asInt))
+			if((delete_it->op == OpCode::STORE || delete_it->op == OpCode::MEMO) && all.count(delete_it->value.asInt) != 0)
 			{
 				data.erase(delete_it);
 #if DEBUG_TRACE
@@ -378,7 +379,7 @@ void BytecodeWriter::Optimize(ScopeData& scope)
 			{
 				if(item.op == OpCode::STORE || item.op == OpCode::MEMO || item.op == OpCode::LOAD)
 				{
-					item.value = OceanValue(variableRenumber.get(item.value.asInt));
+					item.value = OceanValue(variableRenumber.Get(item.value.asInt));
 				}
 			}
 		}
@@ -387,7 +388,7 @@ void BytecodeWriter::Optimize(ScopeData& scope)
 	//TODO: Remove elided variables from strings table.
 }
 
-sprawl::String BytecodeWriter::Finish()
+std::string BytecodeWriter::Finish()
 {
 	assert(m_scopeStack.size() == 1);
 
@@ -399,7 +400,7 @@ sprawl::String BytecodeWriter::Finish()
 		m_globalData.data.push_front({OpCode::DECL, OceanValue(m_globalData.varCount)});
 		m_globalData.data.push_back({OpCode::DEL, OceanValue(m_globalData.varCount)});
 	}
-	m_globalData.data.push_back({OpCode::EXIT, OceanValue(0L)});
+	m_globalData.data.push_back({OpCode::EXIT, OceanValue(I64(0))});
 	
 #if DEBUG_TRACE
 	size_t instructions = m_globalData.data.size();
@@ -458,15 +459,15 @@ sprawl::String BytecodeWriter::Finish()
 		int64_t len = int64_t(str.length());
 		memcpy(buf, &len, sizeof(len));
 		buf += sizeof(len);
-		memcpy(buf, str.c_str(), len);
+		memcpy(buf, str.data(), len);
 		buf += len;
 	}
 	char paddingBuf[8] = {0};
 	memcpy(buf, paddingBuf, padding);
 	buf += padding;
 
-	sprawl::collections::BasicHashMap<int64_t, int64_t> offsetsNeedingPatched;
-	sprawl::collections::BasicHashMap<int64_t, int64_t> offsets;
+	SkipProbe::HashMap<int64_t, int64_t> offsetsNeedingPatched;
+	SkipProbe::HashMap<int64_t, int64_t> offsets;
 
 	memcpy(buf, &sizeOfFunctions, sizeof(sizeOfFunctions));
 	buf += sizeof(sizeOfFunctions);
@@ -479,13 +480,13 @@ sprawl::String BytecodeWriter::Finish()
 		buf += sizeof(int64_t);
 		for(auto& item : func.scope.data)
 		{
-			offsets.insert(int64_t(&item), buf - outBuffer);
+			offsets.Insert(int64_t(&item), buf - outBuffer);
 			switch(item.op)
 			{
 				case OpCode::JUMP:
 				case OpCode::JUMPIF:
 				case OpCode::JUMPNIF:
-					offsetsNeedingPatched.insert(buf - outBuffer, item.value.asInt);
+					offsetsNeedingPatched.Insert(buf - outBuffer, item.value.asInt);
 					break;
 				default:
 					break;
@@ -502,13 +503,13 @@ sprawl::String BytecodeWriter::Finish()
 	buf += sizeof(sizeOfGlobalData);
 	for(auto& item : m_globalData.data)
 	{
-		offsets.insert(int64_t(&item), buf - outBuffer);
+		offsets.Insert(int64_t(&item), buf - outBuffer);
 		switch(item.op)
 		{
 			case OpCode::JUMP:
 			case OpCode::JUMPIF:
 			case OpCode::JUMPNIF:
-				offsetsNeedingPatched.insert(buf - outBuffer, item.value.asInt);
+				offsetsNeedingPatched.Insert(buf - outBuffer, item.value.asInt);
 				break;
 			default:
 				break;
@@ -522,10 +523,10 @@ sprawl::String BytecodeWriter::Finish()
 
 	for(auto kvp : offsetsNeedingPatched)
 	{
-		memcpy(outBuffer + kvp.Key(), &offsets.get(kvp.Value()), sizeof(int64_t));
+		memcpy(outBuffer + kvp.key, &offsets.Get(kvp.value), sizeof(int64_t));
 	}
 
-	sprawl::String str(outBuffer, size);
+	std::string str(outBuffer, size);
 	delete[] outBuffer;
 	
 #if DEBUG_TRACE
@@ -535,18 +536,18 @@ sprawl::String BytecodeWriter::Finish()
 	return str;
 }
 
-int64_t BytecodeWriter::GetStringOffset(sprawl::String const& string) const
+int64_t BytecodeWriter::GetStringOffset(std::string_view const& string) const
 {
 	auto it = m_stringOffsets.find(string);
 	if(it.Valid())
 	{
-		return it.Value();
+		return it->value;
 	}
 	else
 	{
 		int64_t offset = m_strings.size();
 		m_strings.push_back(string);
-		m_stringOffsets.insert(string, offset);
+		m_stringOffsets.Insert(string, offset);
 		return offset;
 	}
 }

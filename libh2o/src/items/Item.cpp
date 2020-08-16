@@ -1,12 +1,12 @@
 #include "Item.hpp"
 
-Item::Item(const sprawl::String& name)
+Item::Item(std::string_view const& name)
 : m_name(name)
 {
 	//NOP
 }
 
-const sprawl::String&Item::GetName()
+std::string_view const& Item::GetName()
 {
 	return m_name;
 }

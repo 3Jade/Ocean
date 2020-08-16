@@ -30,7 +30,7 @@ bool declare_var(BytecodeWriter& writer, ExpressionMatch const& match)
 	}
 	else
 	{
-		writer.Stack_Push(0L);
+		writer.Stack_Push(I64(0));
 	}
 	RegexMatch const* identifierMatch = static_cast<RegexMatch const*>(match["identifier"][0][0]);
 	OceanValue value;
@@ -143,13 +143,13 @@ bool CallFunction(BytecodeWriter& writer, ExpressionMatch const& match)
 
 bool ReadDecInt(BytecodeWriter const& /*writer*/, RegexMatch const& match, OceanValue& outValue)
 {
-	outValue.asInt = atoi(match.Group(0).GetPtr());
+	outValue.asInt = atoi(match.Group(0).data());
 	return true;
 }
 
 bool ReadDecFloat(BytecodeWriter const& /*writer*/, RegexMatch const& match, OceanValue& outValue)
 {
-	outValue.asDouble = atof(match.Group(0).GetPtr());
+	outValue.asDouble = atof(match.Group(0).data());
 	return true;
 }
 
@@ -176,7 +176,7 @@ bool H2O::CompileFile(char const* filename, char const* definitionFile)
 	compiler.AddLiteralTranslator("ReadDecInt", ReadDecInt);
 	compiler.AddLiteralTranslator("ReadDecFloat", ReadDecFloat);
 
-	FILE* f = fopen(definitionFile, "r");
+	FILE* f = fopen(definitionFile, "rb");
 
 	fseek(f, 0, SEEK_END);
 	long fileSize = ftell(f);
@@ -194,7 +194,7 @@ bool H2O::CompileFile(char const* filename, char const* definitionFile)
 		return false;
 	}
 
-	FILE* osFile = fopen(filename, "r");
+	FILE* osFile = fopen(filename, "rb");
 	if(!osFile)
 	{
 		puts("Cannot open file.");
@@ -212,14 +212,14 @@ bool H2O::CompileFile(char const* filename, char const* definitionFile)
 	g_currentFile = filename;
 
 	TokenList tokens;
-	if(compiler.Tokenize(sprawl::StringLiteral(osFileBuffer, osFileSize), tokens))
+	if(compiler.Tokenize(std::string_view(osFileBuffer, osFileSize), tokens))
 	{
-		sprawl::String result;
+		std::string result;
 		if(compiler.Parse(tokens, result))
 		{
 			char outName[256];
 			sprintf(outName, "%s.occ", filename);
-			FILE* f = fopen(outName, "w");
+			FILE* f = fopen(outName, "wb");
 			fwrite(result.c_str(), sizeof(char), result.length(), f);
 			fclose(f);
 			return true;

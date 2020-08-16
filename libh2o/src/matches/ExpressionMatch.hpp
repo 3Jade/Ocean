@@ -1,13 +1,13 @@
 #pragma once
 
 #include "Match.hpp"
-#include <sprawl/collections/HashMap.hpp>
+#include <SkipProbe/SkipProbe.hpp>
 #include <vector>
 
 class ExpressionMatch : public Match
 {
 public:
-	typedef sprawl::collections::BasicHashMap<sprawl::String, std::vector<std::vector<Match*>>> MatchMap;
+	typedef SkipProbe::HashMap<std::string_view, std::vector<std::vector<Match*>>> MatchMap;
 
 	ExpressionMatch(Item& item, TokenList&& tokens, MatchMap&& matches);
 	~ExpressionMatch();
@@ -15,7 +15,7 @@ public:
 	MatchMap::const_iterator begin() const { return m_matches.cbegin(); }
 	MatchMap::const_iterator end() const { return m_matches.cend(); }
 
-	std::vector<std::vector<Match*>> const& operator[](sprawl::String const& str) const;
+	std::vector<std::vector<Match*>> const& operator[](std::string_view const& str) const;
 
 	virtual MatchType GetType() const override { return MatchType::Expression; }
 
@@ -28,9 +28,9 @@ public:
 			{
 				printf(",");
 			}
-			printf(" { %.*s : [", (int)kvp.Key().length(), kvp.Key().c_str());
+			printf(" { %.*s : [", (int)kvp.key.length(), kvp.key.data());
 			bool first = true;
-			for(auto& vect : kvp.Value())
+			for(auto& vect : kvp.value)
 			{
 				if(!first)
 				{
@@ -62,7 +62,7 @@ private:
 	MatchMap m_matches;
 };
 
-inline std::vector<std::vector<Match*>> const& ExpressionMatch::operator[](sprawl::String const& str) const
+inline std::vector<std::vector<Match*>> const& ExpressionMatch::operator[](std::string_view const& str) const
 {
-	return m_matches.get(str);
+	return m_matches.Get(str);
 }

@@ -1,7 +1,7 @@
 #include "StringList.hpp"
 
 StringList::StringList()
-	: m_stringArray((sprawl::StringLiteral*)malloc(sizeof(sprawl::StringLiteral)*256))
+	: m_stringArray((std::string_view*)malloc(sizeof(std::string_view)*256))
 	, m_length(0)
 	, m_capacity(256)
 	, m_allocated(true)
@@ -9,7 +9,7 @@ StringList::StringList()
 	// NOP
 }
 
-StringList::StringList(sprawl::StringLiteral* existingArray, size_t length)
+StringList::StringList(std::string_view* existingArray, size_t length)
 	: m_stringArray(existingArray)
 	, m_length(length)
 	, m_capacity(0)
@@ -26,7 +26,7 @@ StringList::~StringList()
 	}
 }
 
-StringList::StringList(StringList&& other)
+StringList::StringList(StringList&& other) noexcept
 	: m_stringArray(other.m_stringArray)
 	, m_length(other.m_length)
 	, m_capacity(other.m_capacity)
@@ -44,19 +44,19 @@ StringList::StringList(StringList const& other)
 	, m_capacity(other.m_capacity)
 	, m_allocated(true)
 {
-	m_stringArray = (sprawl::StringLiteral*)malloc(sizeof(sprawl::StringLiteral) * m_capacity);
+	m_stringArray = (std::string_view*)malloc(sizeof(std::string_view) * m_capacity);
 	for(int i = 0; i < m_length; ++i)
 	{
 		m_stringArray[i] = other.m_stringArray[i];
 	}
 }
 
-void StringList::PushBack(sprawl::StringLiteral const& string)
+void StringList::PushBack(std::string_view const& string)
 {
 	if(m_length > m_capacity * 0.75)
 	{
 		m_capacity = m_capacity * 2;
-		sprawl::StringLiteral* newArray = (sprawl::StringLiteral*)malloc(sizeof(sprawl::StringLiteral) * m_capacity);
+		std::string_view* newArray = (std::string_view*)malloc(sizeof(std::string_view) * m_capacity);
 		for(int i = 0; i < m_length; ++i)
 		{
 			newArray[i] = m_stringArray[i];

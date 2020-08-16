@@ -1,5 +1,6 @@
 #include "RegexMatch.hpp"
 #include "../items/LiteralItem.hpp"
+#include <sprawl/memory/PoolAllocator.hpp>
 
 RegexMatch::RegexMatch(LiteralItem& baseItem, TokenList&& tokens, re2::StringPiece* stringPieces)
 	: Match(baseItem, std::move(tokens))
@@ -13,12 +14,12 @@ RegexMatch::~RegexMatch()
 	delete[] m_stringPieces;
 }
 
-sprawl::StringLiteral RegexMatch::Group(size_t index) const
+std::string_view RegexMatch::Group(size_t index) const
 {
-	return sprawl::StringLiteral(m_stringPieces[index].data(), m_stringPieces[index].length());
+	return std::string_view(m_stringPieces[index].data(), m_stringPieces[index].length());
 }
 
-sprawl::StringLiteral RegexMatch::Group(sprawl::String const& groupName) const
+std::string_view RegexMatch::Group(std::string_view const& groupName) const
 {
 	LiteralItem& item = static_cast<LiteralItem&>(GetBaseItem());
 	return Group(item.GroupNameToIndex(groupName));

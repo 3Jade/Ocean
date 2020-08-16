@@ -4,7 +4,7 @@
 #include "../../../libocean/src/BytecodeWriter.hpp"
 #include "../H2OCompiler.hpp"
 
-/*virtual*/ GroupItem::GroupItem(const sprawl::String& name, sprawl::collections::List<sprawl::StringLiteral>&& names)
+/*virtual*/ GroupItem::GroupItem(const std::string_view& name, std::list<std::string_view>&& names)
 	: Item(name)
 	, m_names(std::move(names))
 {

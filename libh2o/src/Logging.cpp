@@ -1,5 +1,5 @@
 #include "Logging.hpp"
-#include <sprawl/string/String.hpp>
+#include <string_view>
 #include "TokenList.hpp"
 #include "h2o.hpp"
 
@@ -76,7 +76,7 @@ namespace LoggingStatic
 	}
 }
 
-void LogError(sprawl::String const& str, TokenList const& problematicTokens)
+void LogError(std::string const& str, TokenList const& problematicTokens)
 {
 	int line = -1;
 	int endLine = 0;
@@ -92,7 +92,7 @@ void LogError(sprawl::String const& str, TokenList const& problematicTokens)
 		// Remove the check for LineNo() == line here to activate that interface.
 		while(idx < problematicTokens.Length() && problematicTokens[idx].LineNo() == line)
 		{
-			endColumn = problematicTokens[idx].Column() + problematicTokens[idx].Text().GetLength() - 1;
+			endColumn = problematicTokens[idx].Column() + problematicTokens[idx].Text().length() - 1;
 			endLine = problematicTokens[idx].LineNo();
 			++idx;
 		}
@@ -110,7 +110,7 @@ void LogError(sprawl::String const& str, TokenList const& problematicTokens)
 
 
 
-void LogWarning(sprawl::String const& str, TokenList const& problematicTokens)
+void LogWarning(std::string const& str, TokenList const& problematicTokens)
 {
 	int line = -1;
 	int endLine = 0;
@@ -126,7 +126,7 @@ void LogWarning(sprawl::String const& str, TokenList const& problematicTokens)
 		// Remove the check for LineNo() == line here to activate that interface.
 		while(idx < problematicTokens.Length() && problematicTokens[idx].LineNo() == line)
 		{
-			endColumn = problematicTokens[idx].Column() + problematicTokens[idx].Text().GetLength() - 1;
+			endColumn = problematicTokens[idx].Column() + problematicTokens[idx].Text().length() - 1;
 			endLine = problematicTokens[idx].LineNo();
 			++idx;
 		}

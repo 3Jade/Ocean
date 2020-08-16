@@ -1,63 +1,88 @@
 #pragma once
 
-#include <sprawl/collections/HashMap.hpp>
+#include <SkipProbe/SkipProbe.hpp>
+#include <list>
+#include <unordered_set>
 
 #include "items/LiteralItem.hpp"
 #include "items/SpanItem.hpp"
 #include "items/RegexSpanItem.hpp"
 #include "items/GroupItem.hpp"
 #include "items/ExpressionItem.hpp"
-#include <sprawl/collections/List.hpp>
 
 class H2OCompiler
 {
 public:
 	H2OCompiler();
 
-	bool Tokenize(sprawl::StringLiteral const& text, TokenList& tokens);
-	bool Parse(TokenList const& tokens, sprawl::String& output);
+	~H2OCompiler()
+	{
+		for (auto& literal : m_literals)
+		{
+			delete literal.value;
+		}
+		for (auto& span : m_spans)
+		{
+			delete span.value;
+		}
+		for (auto& regexSpan : m_regexSpans)
+		{
+			delete regexSpan.value;
+		}
+		for (auto& group : m_groups)
+		{
+			delete group.value;
+		}
+		for (auto& expression : m_expressions)
+		{
+			delete expression.value;
+		}
+	}
 
-	LiteralItem& AddLiteral(sprawl::String const& name, sprawl::StringLiteral const& regex, LiteralItem::Translator const& translator = nullptr);
-	SpanItem& AddSpan(sprawl::String const& name, sprawl::StringLiteral const& startLiteral, sprawl::StringLiteral const& endLiteral, SpanItem::Translator const& translator);
-	RegexSpanItem& AddRegexSpan(sprawl::String const& name, sprawl::StringLiteral const& startRegex, sprawl::StringLiteral const& endLiteral, RegexSpanItem::Translator const& translator);
+	bool Tokenize(std::string_view const& text, TokenList& tokens);
+	bool Parse(TokenList const& tokens, std::string& output);
 
-	ExpressionItem& AddExpression(sprawl::String const& name, std::initializer_list<const char* const> values, ExpressionItem::Translator const& translator = nullptr);
-	ExpressionItem& AddExpression(const sprawl::String& name, StringList&& valueList, const ExpressionItem::Translator& translator = nullptr);
+	LiteralItem& AddLiteral(std::string_view const& name, std::string_view const& regex, LiteralItem::Translator const& translator = nullptr);
+	SpanItem& AddSpan(std::string_view const& name, std::string_view const& startLiteral, std::string_view const& endLiteral, SpanItem::Translator const& translator);
+	RegexSpanItem& AddRegexSpan(std::string_view const& name, std::string_view const& startRegex, std::string_view const& endLiteral, RegexSpanItem::Translator const& translator);
 
-	GroupItem& AddGroup(sprawl::String const& name, std::initializer_list<const char* const> names);
-	GroupItem& AddGroup(const sprawl::String& name, sprawl::collections::List<sprawl::StringLiteral>&& nameList);
+	ExpressionItem& AddExpression(std::string_view const& name, std::initializer_list<const char* const> values, ExpressionItem::Translator const& translator = nullptr);
+	ExpressionItem& AddExpression(const std::string_view& name, StringList&& valueList, const ExpressionItem::Translator& translator = nullptr);
 
-	void AddTopLevelItem(sprawl::String const& itemName);
+	GroupItem& AddGroup(std::string_view const& name, std::initializer_list<const char* const> names);
+	GroupItem& AddGroup(const std::string_view& name, std::list<std::string_view>&& nameList);
 
-	Item* GetItem(sprawl::String const& itemName) const { return m_allItems.get(itemName); }
+	void AddTopLevelItem(std::string_view const& itemName);
 
-	void AddLiteralTranslator(sprawl::String const& name, LiteralItem::Translator const& translator);
-	void AddExpressionTranslator(sprawl::String const& name, ExpressionItem::Translator const& translator);
-	void AddSpanTranslator(sprawl::String const& name, SpanItem::Translator const& translator);
+	Item* GetItem(std::string_view const& itemName) const { return m_allItems.Get(itemName); }
 
-	LiteralItem::Translator GetLiteralTranslator(sprawl::String const& name);
-	ExpressionItem::Translator GetExpressionTranslator(sprawl::String const& name);
-	SpanItem::Translator GetSpanTranslator(sprawl::String const& name);
+	void AddLiteralTranslator(std::string_view const& name, LiteralItem::Translator const& translator);
+	void AddExpressionTranslator(std::string_view const& name, ExpressionItem::Translator const& translator);
+	void AddSpanTranslator(std::string_view const& name, SpanItem::Translator const& translator);
+
+	LiteralItem::Translator GetLiteralTranslator(std::string_view const& name);
+	ExpressionItem::Translator GetExpressionTranslator(std::string_view const& name);
+	SpanItem::Translator GetSpanTranslator(std::string_view const& name);
 
 	void EnableSignificantWhitespace() { m_significantWhitespace = true; }
 private:
-	sprawl::collections::BasicHashMap<sprawl::String, LiteralItem> m_literals;
+	SkipProbe::HashMap<std::string_view, LiteralItem*> m_literals;
 
-	sprawl::collections::BasicHashMap<sprawl::String, SpanItem> m_spans;
+	SkipProbe::HashMap<std::string_view, SpanItem*> m_spans;
 
-	sprawl::collections::BasicHashMap<sprawl::String, RegexSpanItem> m_regexSpans;
+	SkipProbe::HashMap<std::string_view, RegexSpanItem*> m_regexSpans;
 
-	sprawl::collections::BasicHashMap<sprawl::String, GroupItem> m_groups;
+	SkipProbe::HashMap<std::string_view, GroupItem*> m_groups;
 
-	sprawl::collections::BasicHashMap<sprawl::String, ExpressionItem> m_expressions;
-	sprawl::collections::HashSet<sprawl::String> m_expressionLiterals;
+	SkipProbe::HashMap<std::string_view, ExpressionItem*> m_expressions;
+	std::unordered_set<std::string_view> m_expressionLiterals;
 
-	sprawl::collections::BasicHashMap<sprawl::String, ExpressionItem::Translator> m_expressionTranslators;
-	sprawl::collections::BasicHashMap<sprawl::String, LiteralItem::Translator> m_literalTranslators;
-	sprawl::collections::BasicHashMap<sprawl::String, SpanItem::Translator> m_spanTranslators;
+	SkipProbe::HashMap<std::string_view, ExpressionItem::Translator> m_expressionTranslators;
+	SkipProbe::HashMap<std::string_view, LiteralItem::Translator> m_literalTranslators;
+	SkipProbe::HashMap<std::string_view, SpanItem::Translator> m_spanTranslators;
 
-	sprawl::collections::BasicHashMap<sprawl::String, Item*> m_allItems;
-	sprawl::collections::List<Item*> m_topLevelItems;
+	SkipProbe::HashMap<std::string_view, Item*> m_allItems;
+	std::list<Item*> m_topLevelItems;
 
 	bool m_significantWhitespace;
 };

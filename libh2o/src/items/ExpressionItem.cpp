@@ -3,7 +3,7 @@
 #include "../../../libocean/src/BytecodeWriter.hpp"
 #include "../H2OCompiler.hpp"
 
-/*virtual*/ ExpressionItem::ExpressionItem(const sprawl::String& name, StringList&& values, Translator const& translator)
+/*virtual*/ ExpressionItem::ExpressionItem(std::string_view const& name, StringList&& values, Translator const& translator)
 	: Item(name)
 	, m_values(std::move(values))
 	, m_literals()
@@ -11,9 +11,9 @@
 {
 	for(int i = 0; i < m_values.Length(); ++i)
 	{
-		if(m_values[i].GetPtr()[0] != '$')
+		if(m_values[i].data()[0] != '$')
 		{
-			m_literals.PushBack(i);
+			m_literals.push_back(i);
 		}
 	}
 }
@@ -33,11 +33,11 @@ enum class LoopAction
 	Continue = 1
 };
 
-sprawl::String tabs = "";
+std::string tabs = "";
 
-sprawl::String PrintTokens(TokenList const& tokens)
+std::string PrintTokens(TokenList const& tokens)
 {
-	sprawl::String out = "";
+	std::string out = "";
 	bool first = true;
 	out += "[";
 	for(int i = 0; i < tokens.Length(); ++i)
@@ -53,9 +53,9 @@ sprawl::String PrintTokens(TokenList const& tokens)
 	return out;
 }
 
-sprawl::String PrintStringList(StringList const& tokens)
+std::string PrintStringList(StringList const& tokens)
 {
-	sprawl::String out = "";
+	std::string out = "";
 	bool first = true;
 	out += "[";
 	for(int i = 0; i < tokens.Length(); ++i)
@@ -73,27 +73,27 @@ sprawl::String PrintStringList(StringList const& tokens)
 
 Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& tokens) /*override*/
 {
-	if(tokens.Length() < m_literals.Size())
+	if(tokens.Length() < m_literals.size())
 	{
 		return nullptr;
 	}
 
-	if(m_values[0].GetPtr()[0] != '$')
+	if(m_values[0].data()[0] != '$')
 	{
-		sprawl::StringLiteral const& tok = tokens[0].Text();
-		sprawl::StringLiteral const& literal = m_values[0];
-		if(tok.GetLength() != literal.GetLength() || memcmp(tok.GetPtr(), literal.GetPtr(), tok.GetLength()) != 0)
+		std::string_view const& tok = tokens[0].Text();
+		std::string_view const& literal = m_values[0];
+		if(tok.length() != literal.length() || memcmp(tok.data(), literal.data(), tok.length()) != 0)
 		{
 			return nullptr;
 		}
 	}
 
-	sprawl::String oldTabs = tabs;
+	std::string oldTabs = tabs;
 	tabs = tabs + "\t";
 
-	int startLocation = -1;
-	int endLocation = -1;
-	int prev = -1;
+	int64_t startLocation = -1;
+	int64_t endLocation = -1;
+	int64_t prev = -1;
 	ExpressionMatch::MatchMap matches;
 
 	struct Helper
@@ -103,7 +103,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 		{
 			for(auto& vect : m_matches)
 			{
-				for(auto& subvect : vect.Value())
+				for(auto& subvect : vect.value)
 				{
 					for(auto& item : subvect)
 					{
@@ -118,25 +118,25 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 	//printf("%s%s: Matching against %s\n", tabs.c_str(), GetName().c_str(), PrintTokens(tokens).c_str());
 	for(auto literalIndex : m_literals)
 	{
-		sprawl::StringLiteral literal = m_values[literalIndex];
-		//printf("%s%s %s\n", tabs.c_str(), GetName().c_str(), literal.GetPtr());
+		std::string_view literal = m_values[literalIndex];
+		//printf("%s%s %s\n", tabs.c_str(), GetName().c_str(), literal.data());
 		if(prev + 1 < literalIndex)
 		{
 			int numTokens = tokens.Length();
 			bool matched = false;
 			for(int i = numTokens - 1; i >= 0; --i)
 			{
-				sprawl::StringLiteral token = tokens[i].Text();
+				std::string_view token = tokens[i].Text();
 				LoopAction loopAction = LoopAction::Continue;
-				if(token.GetLength() == literal.GetLength() && !memcmp(token.GetPtr(), literal.GetPtr(), token.GetLength()))
+				if(token.length() == literal.length() && !memcmp(token.data(), literal.data(), token.length()))
 				{
 					StringList const expressionsBetween = m_values.Slice(prev + 1, literalIndex);
 					endLocation = i;
 					int numExpressions = expressionsBetween.Length();
 					for(int expressionIndex = 0; expressionIndex < numExpressions; ++expressionIndex)
 					{
-						char const* expNamePtr = expressionsBetween[expressionIndex].GetPtr() + 1;
-						int expNameLen = expressionsBetween[expressionIndex].GetLength() - 1;
+						char const* expNamePtr = expressionsBetween[expressionIndex].data() + 1;
+						int64_t expNameLen = expressionsBetween[expressionIndex].length() - 1;
 						RepeatType repeat = RepeatType::One;
 						switch(expNamePtr[0])
 						{
@@ -152,28 +152,27 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 								break;
 						}
 
-						sprawl::StringLiteral storeName(expNamePtr, expNameLen);
+						std::string_view storeName(expNamePtr, expNameLen);
 						if(expNamePtr[expNameLen-1] == '>')
 						{
 							for(int idx = expNameLen - 2; idx >= 0; --idx)
 							{
 								if(expNamePtr[idx] == '<')
 								{
-									storeName = sprawl::StringLiteral(expNamePtr + idx + 1, expNameLen - idx - 2);
+									storeName = std::string_view(expNamePtr + idx + 1, expNameLen - idx - 2);
 									expNameLen = idx;
 								}
 							}
 						}
 
-						sprawl::String storeNameStr(storeName);
-						auto it = matches.find(storeNameStr);
+						auto it = matches.find(storeName);
 						if(!it.Valid())
 						{
-							it = matches.insert(storeNameStr, std::vector<std::vector< ::Match*>>());
+							it = matches.CheckedInsert(storeName, std::vector<std::vector< ::Match*>>()).iterator;
 						}
-						it.Value().push_back(std::vector< ::Match*>());
+						it->value.push_back(std::vector< ::Match*>());
 
-						sprawl::String expNameStr(sprawl::StringLiteral(expNamePtr, expNameLen));
+						std::string_view expNameStr(expNamePtr, expNameLen);
 						Item* expReferencedItem = compiler.GetItem(expNameStr);
 
 						int start = startLocation + 1;
@@ -196,7 +195,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 									break;
 								}
 
-								it.Value().back().push_back(match);
+								it->value.back().push_back(match);
 								loopAction = LoopAction::Break;
 								found = true;
 
@@ -233,7 +232,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 						}
 						if(loopAction == LoopAction::Continue)
 						{
-							matches.get(storeNameStr).pop_back();
+							matches.Get(storeName).pop_back();
 							break;
 						}
 					}
@@ -256,17 +255,17 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 				return nullptr;
 			}
 		}
-		else if(startLocation < int(tokens.Length() - 1))
+		else if(startLocation < int64_t(tokens.Length()) - 1)
 		{
-			sprawl::StringLiteral tok = tokens[startLocation+1].Text();
-			if(tok.GetLength() == literal.GetLength() && !memcmp(tok.GetPtr(), literal.GetPtr(), tok.GetLength()))
+			std::string_view tok = tokens[startLocation+1].Text();
+			if(tok.length() == literal.length() && !memcmp(tok.data(), literal.data(), tok.length()))
 			{
-				//printf("%s%s Found token %.*s\n", tabs.c_str(), GetName().c_str(), (int)literal.GetLength(), literal.GetPtr());
+				//printf("%s%s Found token %.*s\n", tabs.c_str(), GetName().c_str(), (int)literal.length(), literal.data());
 				endLocation = startLocation + 1;
 			}
 			else
 			{
-				//printf("%s%s Couldn't match token %.*s\n", tabs.c_str(), GetName().c_str(), (int)literal.GetLength(), literal.GetPtr());
+				//printf("%s%s Couldn't match token %.*s\n", tabs.c_str(), GetName().c_str(), (int)literal.length(), literal.data());
 				tabs = oldTabs;
 				return nullptr;
 			}
@@ -292,8 +291,8 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 		int numExpressions = expressionsAfter.Length();
 		for(int expressionIndex = 0; expressionIndex < numExpressions; ++expressionIndex)
 		{
-			char const* expNamePtr = expressionsAfter[expressionIndex].GetPtr() + 1;
-			int expNameLen = expressionsAfter[expressionIndex].GetLength() - 1;
+			char const* expNamePtr = expressionsAfter[expressionIndex].data() + 1;
+			int64_t expNameLen = expressionsAfter[expressionIndex].length() - 1;
 			RepeatType repeat = RepeatType::One;
 			switch(expNamePtr[0])
 			{
@@ -309,28 +308,27 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 					break;
 			}
 
-			sprawl::StringLiteral storeName(expNamePtr, expNameLen);
+			std::string_view storeName(expNamePtr, expNameLen);
 			if(expNamePtr[expNameLen-1] == '>')
 			{
 				for(int idx = expNameLen - 2; idx >= 0; --idx)
 				{
 					if(expNamePtr[idx] == '<')
 					{
-						storeName = sprawl::StringLiteral(expNamePtr + idx + 1, expNameLen - idx - 2);
+						storeName = std::string_view(expNamePtr + idx + 1, expNameLen - idx - 2);
 						expNameLen = idx;
 					}
 				}
 			}
 
-			sprawl::String storeNameStr(storeName);
-			auto it = matches.find(storeNameStr);
+			auto it = matches.find(storeName);
 			if(!it.Valid())
 			{
-				it = matches.insert(storeNameStr, std::vector<std::vector< ::Match*>>());
+				it = matches.CheckedInsert(storeName, std::vector<std::vector< ::Match*>>()).iterator;
 			}
-			it.Value().push_back(std::vector< ::Match*>());
+			it->value.push_back(std::vector< ::Match*>());
 
-			sprawl::String expNameStr(sprawl::StringLiteral(expNamePtr, expNameLen));
+			std::string_view expNameStr(expNamePtr, expNameLen);
 			Item* expReferencedItem = compiler.GetItem(expNameStr);
 
 			bool found = false;
@@ -350,7 +348,7 @@ Match* ExpressionItem::Match(H2OCompiler const& compiler, const TokenList& token
 					}
 
 					endLocation += match->End();
-					it.Value().back().push_back(match);
+					it->value.back().push_back(match);
 					found = true;
 					if(repeat == RepeatType::One || repeat == RepeatType::ZeroOrOne)
 					{
@@ -395,7 +393,7 @@ bool ExpressionItem::Translate(BytecodeWriter& writer, ::Match const& match)
 	{
 		for(auto& vect : expressionMatch)
 		{
-			for(auto& subvect : vect.Value())
+			for(auto& subvect : vect.value)
 			{
 				for(auto& match : subvect)
 				{

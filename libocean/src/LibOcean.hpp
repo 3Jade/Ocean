@@ -1,8 +1,9 @@
 #pragma once
 
 class Stack;
-#include <sprawl/collections/HashMap.hpp>
-#include <sprawl/string/String.hpp>
+#include <string_view>
+
+#include <SkipProbe/SkipProbe.hpp>
 
 #ifndef DEBUG_TRACE
 #	define DEBUG_TRACE 0
@@ -32,11 +33,17 @@ namespace Ocean
 		int nParams;
 		bool isConstExpr;
 	};
-	
+
 	void Install();
 
-	extern sprawl::collections::BasicHashMap<sprawl::String, BoundFunction> namedNativeFunctions;
+	extern SkipProbe::HashMap<std::string_view, BoundFunction> namedNativeFunctions;
 }
+
+#ifdef _MSC_VER
+#define I64(val) val##LL
+#else
+#define I64(val) val##L
+#endif
 
 union OceanValue
 {

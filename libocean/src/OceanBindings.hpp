@@ -31,9 +31,12 @@ namespace Ocean
 			return stack.Read().asInt;
 		}
 	};
-	
+
+	template<size_t n, typename... Args>
+	struct GetNthParam;
+
 	template<size_t n, typename t_FirstArg, typename... Args>
-	struct GetNthParam
+	struct GetNthParam<n, t_FirstArg, Args...>
 	{
 		typedef typename GetNthParam<n - 1, Args...>::type type;
 	};
@@ -68,56 +71,31 @@ namespace Ocean
 	{
 		typedef t_ReturnType type;
 	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, size_t nArgs, size_t curArg, typename t_ReturnType = typename GetReturnType<t_FunctionType>::type>
+
+	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, size_t nArgs, size_t curArg, typename t_ReturnType>
 	struct FunctionCaller
 	{
 		template<typename... Args>
 		static void Call(Stack& stack, Args&&... args)
 		{
-			typedef typename GetNthArgType<curArg, t_FunctionType>::type CurrentArgumentType;
-			CurrentArgumentType arg = GetAs<CurrentArgumentType>::Consume(stack);
-			FunctionCaller<t_FunctionType, t_FunctionPtr, nArgs, curArg + 1>::Call(stack, std::forward<Args>(args)..., std::move(arg));
-		}
-	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, size_t nArgs, typename t_ReturnType>
-	struct FunctionCaller<t_FunctionType, t_FunctionPtr, nArgs, nArgs, t_ReturnType>
-	{
-		template<typename... Args>
-		static void Call(Stack& stack, Args&&... args)
-		{
-			t_ReturnType ret = t_FunctionPtr(std::forward<Args>(args)...);
-			stack.Push(OceanValue(ret));
-		}
-	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, size_t nArgs>
-	struct FunctionCaller<t_FunctionType, t_FunctionPtr, nArgs, nArgs, void>
-	{
-		template<typename... Args>
-		static void Call(Stack& stack, Args&&... args)
-		{
-			t_FunctionPtr(std::forward<Args>(args)...);
-		}
-	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, typename t_ReturnType>
-	struct FunctionCaller<t_FunctionType, t_FunctionPtr, 0, 0, t_ReturnType>
-	{
-		static void Call(Stack& stack)
-		{
-			t_ReturnType ret = t_FunctionPtr();
-			stack.Push(OceanValue(ret));
-		}
-	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr>
-	struct FunctionCaller<t_FunctionType, t_FunctionPtr, 0, 0, void>
-	{
-		static void Call(Stack& stack)
-		{
-			t_FunctionPtr();
+			if constexpr(nArgs == curArg)
+			{
+				if constexpr(std::is_same<t_ReturnType, void>::value)
+				{
+					t_FunctionPtr(std::forward<Args>(args)...);
+				}
+				else
+				{
+					t_ReturnType ret = t_FunctionPtr(std::forward<Args>(args)...);
+					stack.Push(OceanValue(ret));
+				}
+			}
+			else
+			{
+				typedef typename GetNthArgType<curArg, t_FunctionType>::type CurrentArgumentType;
+				CurrentArgumentType arg = GetAs<CurrentArgumentType>::Consume(stack);
+				FunctionCaller<t_FunctionType, t_FunctionPtr, nArgs, curArg + 1, t_ReturnType>::Call(stack, std::forward<Args>(args)..., std::move(arg));
+			}
 		}
 	};
 	
@@ -129,28 +107,16 @@ namespace Ocean
 		template<typename... Args>
 		static void Call(Stack& stack, Args&&... args)
 		{
-			typedef typename GetNthArgType<curArg, t_FunctionType>::type CurrentArgumentType;
-			CurrentArgumentType arg = GetAs<CurrentArgumentType>::Read(stack);
-			NonDestructiveCaller<t_FunctionType, t_FunctionPtr, nArgs, curArg + 1>::Call(stack, std::forward<Args>(args)..., std::move(arg));
-		}
-	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, size_t nArgs>
-	struct NonDestructiveCaller<t_FunctionType, t_FunctionPtr, nArgs, nArgs>
-	{
-		template<typename... Args>
-		static void Call(Stack& stack, Args&&... args)
-		{
-			t_FunctionPtr(std::forward<Args>(args)...);
-		}
-	};
-	
-	template<typename t_FunctionType, t_FunctionType t_FunctionPtr>
-	struct NonDestructiveCaller<t_FunctionType, t_FunctionPtr, 0, 0>
-	{
-		static void Call(Stack& stack)
-		{
-			t_FunctionPtr();
+			if constexpr (nArgs == curArg)
+			{
+				t_FunctionPtr(std::forward<Args>(args)...);
+			}
+			else
+			{
+				typedef typename GetNthArgType<curArg, t_FunctionType>::type CurrentArgumentType;
+				CurrentArgumentType arg = GetAs<CurrentArgumentType>::Read(stack);
+				NonDestructiveCaller<t_FunctionType, t_FunctionPtr, nArgs, curArg + 1>::Call(stack, std::forward<Args>(args)..., std::move(arg));
+			}
 		}
 	};
 	
@@ -167,16 +133,21 @@ namespace Ocean
 	};
 	
 	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, typename std::enable_if<!IsVoidReturn<t_FunctionType>::value>::type* = nullptr>
-	void Bind(sprawl::String const& name, bool isConstExpr = false)
+	void Bind(std::string_view const& name, bool isConstExpr = false)
 	{
-		Ocean::namedNativeFunctions.insert(name, Ocean::BoundFunction(FunctionCaller<t_FunctionType, t_FunctionPtr, NumArgs<t_FunctionType>::value, 0>::Call, NumArgs<t_FunctionType>::value, isConstExpr, nullptr));	
+		Ocean::namedNativeFunctions.Insert(name, Ocean::BoundFunction(
+			FunctionCaller<t_FunctionType, t_FunctionPtr, NumArgs<t_FunctionType>::value, 0, typename GetReturnType<t_FunctionType>::type>::Call,
+			NumArgs<t_FunctionType>::value, 
+			isConstExpr, 
+			nullptr
+		));	
 	}
 	
 	template<typename t_FunctionType, t_FunctionType t_FunctionPtr, typename std::enable_if<IsVoidReturn<t_FunctionType>::value>::type* = nullptr>
-	void Bind(sprawl::String const& name, bool isConstExpr)
+	void Bind(std::string_view const& name, bool isConstExpr)
 	{
-		Ocean::namedNativeFunctions.insert(name, Ocean::BoundFunction(
-			FunctionCaller<t_FunctionType, t_FunctionPtr, NumArgs<t_FunctionType>::value, 0>::Call,
+		Ocean::namedNativeFunctions.Insert(name, Ocean::BoundFunction(
+			FunctionCaller<t_FunctionType, t_FunctionPtr, NumArgs<t_FunctionType>::value, 0, typename GetReturnType<t_FunctionType>::type>::Call,
 			NumArgs<t_FunctionType>::value, 
 			isConstExpr,
 			NonDestructiveCaller<t_FunctionType, t_FunctionPtr, NumArgs<t_FunctionType>::value, 0>::Call

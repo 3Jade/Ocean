@@ -1,10 +1,9 @@
 #include <cstdio>
 #include <cstdint>
+#include <cstdarg>
 #include <sys/stat.h>
-#include <unistd.h>
 #include <string>
-#include <sprawl/collections/HashMap.hpp>
-#include <sprawl/string/String.hpp>
+#include <SkipProbe/SkipProbe.hpp>
 
 #include "../../libocean/src/OpCode.hpp"
 #include "../../libocean/src/Stack.hpp"
@@ -308,24 +307,24 @@ public:
 		char const* stringsStart = bytecode;
 		char const* stringsEnd = bytecode + stringsLength;
 	
-		sprawl::collections::BasicHashMap<int64_t, sprawl::String> strings;
-		sprawl::collections::BasicHashMap<int64_t, Ocean::BoundFunction::FunctionType> nativeFunctions;
-		sprawl::collections::BasicHashMap<int64_t, Ocean::BoundFunction::FunctionType> nonDestructiveFunctions;
+		SkipProbe::HashMap<int64_t, std::string_view> strings;
+		SkipProbe::HashMap<int64_t, Ocean::BoundFunction::FunctionType> nativeFunctions;
+		SkipProbe::HashMap<int64_t, Ocean::BoundFunction::FunctionType> nonDestructiveFunctions;
 	
 		int64_t stringId = 0;
 		while(bytecode < stringsEnd)
 		{
 			int64_t strLength = READ(int64_t);
 			bytecode += sizeof(int64_t);
-			sprawl::StringLiteral lit(bytecode, strLength);
-			strings.insert(stringId, lit);
-			if(Ocean::namedNativeFunctions.has(lit))
+			std::string_view lit(bytecode, strLength);
+			strings.Insert(stringId, lit);
+			if(Ocean::namedNativeFunctions.find(lit).Valid())
 			{
-				auto& func = Ocean::namedNativeFunctions.get(lit);
-				nativeFunctions.insert(stringId, func.function);
+				auto& func = Ocean::namedNativeFunctions.Get(lit);
+				nativeFunctions.Insert(stringId, func.function);
 				if(func.nonDestructiveFunction)
 				{
-					nonDestructiveFunctions.insert(stringId, func.nonDestructiveFunction);
+					nonDestructiveFunctions.Insert(stringId, func.nonDestructiveFunction);
 				}
 			}
 			bytecode += strLength;
@@ -346,7 +345,7 @@ public:
 		ASSERT(functionsLength + stringsLength + sizeof(int64_t) * 3 < size, "Invalid bytecode. (Corrupt Functions Table)");
 		char* functionsEnd = bytecode + functionsLength;
 	
-		sprawl::collections::BasicHashMap<int64_t, char*> functions;
+		SkipProbe::HashMap<int64_t, char*> functions;
 		
 		while(bytecode < functionsEnd)
 		{
@@ -354,7 +353,7 @@ public:
 			bytecode += sizeof(int64_t);
 			int64_t functionLength = READ(int64_t);
 			bytecode += sizeof(int64_t);
-			functions.insert(funcNameOffset, bytecode);
+			functions.Insert(funcNameOffset, bytecode);
 	
 			char* functionEnd = bytecode + functionLength;
 			while(bytecode < functionEnd)
@@ -367,28 +366,28 @@ public:
 				if(code == OpCode::CALL)
 				{
 					int64_t value = READ(int64_t);
-					if(nativeFunctions.has(value))
+					if(nativeFunctions.find(value).Valid())
 					{
 						OpFn& func = funcs[static_cast<std::underlying_type<OpCode>::type>(OpCode::CALLN)];
 						bytecode -= sizeof(int64_t);
 						memcpy(bytecode, &func, sizeof(int64_t));
 						bytecode += sizeof(int64_t);
-						memcpy(bytecode, &nativeFunctions.get(value), sizeof(int64_t));
+						memcpy(bytecode, &nativeFunctions.Get(value), sizeof(int64_t));
 					}
 					else
 					{
-						memcpy(bytecode, &functions.get(value), sizeof(int64_t));
+						memcpy(bytecode, &functions.Get(value), sizeof(int64_t));
 					}
 				}
 				else if(code == OpCode::CALLND)
 				{
 					int64_t value = READ(int64_t);
-					ASSERT(nonDestructiveFunctions.has(value), "CALLND opcode with no valid native function.");
+					ASSERT(nonDestructiveFunctions.find(value).Valid(), "CALLND opcode with no valid native function.");
 					OpFn& func = funcs[static_cast<std::underlying_type<OpCode>::type>(OpCode::CALLN)];
 					bytecode -= sizeof(int64_t);
 					memcpy(bytecode, &func, sizeof(int64_t));
 					bytecode += sizeof(int64_t);
-					memcpy(bytecode, &nonDestructiveFunctions.get(value), sizeof(int64_t));
+					memcpy(bytecode, &nonDestructiveFunctions.Get(value), sizeof(int64_t));
 				}
 				bytecode += sizeof(int64_t);
 			}
@@ -414,28 +413,28 @@ public:
 			if(code == OpCode::CALL)
 			{
 				int64_t value = READ(int64_t);
-				if(nativeFunctions.has(value))
+				if(nativeFunctions.find(value))
 				{
 					OpFn& func = funcs[static_cast<std::underlying_type<OpCode>::type>(OpCode::CALLN)];
 					bytecode -= sizeof(int64_t);
 					memcpy(bytecode, &func, sizeof(int64_t));
 					bytecode += sizeof(int64_t);
-					memcpy(bytecode, &nativeFunctions.get(value), sizeof(int64_t));
+					memcpy(bytecode, &nativeFunctions.Get(value), sizeof(int64_t));
 				}
 				else
 				{
-					memcpy(bytecode, &functions.get(value), sizeof(int64_t));
+					memcpy(bytecode, &functions.Get(value), sizeof(int64_t));
 				}
 			}
 			else if(code == OpCode::CALLND)
 			{
 				int64_t value = READ(int64_t);
-				ASSERT(nonDestructiveFunctions.has(value), "CALLND opcode with no valid native function.");
+				ASSERT(nonDestructiveFunctions.find(value).Valid(), "CALLND opcode with no valid native function.");
 				OpFn& func = funcs[static_cast<std::underlying_type<OpCode>::type>(OpCode::CALLN)];
 				bytecode -= sizeof(int64_t);
 				memcpy(bytecode, &func, sizeof(int64_t));
 				bytecode += sizeof(int64_t);
-				memcpy(bytecode, &nonDestructiveFunctions.get(value), sizeof(int64_t));
+				memcpy(bytecode, &nonDestructiveFunctions.Get(value), sizeof(int64_t));
 			}
 			bytecode += sizeof(int64_t);
 		}
@@ -511,7 +510,7 @@ int main(int argc, char* argv[])
 		filename = argv[1];
 	}
 
-	FILE* f = fopen(filename, "r");
+	FILE* f = fopen(filename, "rb");
 	if(!f)
 	{
 		puts("Cannot open file.");

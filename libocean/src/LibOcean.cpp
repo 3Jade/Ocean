@@ -1,10 +1,12 @@
+#include <SkipProbe/SkipProbe.hpp>
+
 #include "LibOcean.hpp"
 #include "Stack.hpp"
 #include "OceanBindings.hpp"
 
 namespace Ocean
 {
-	sprawl::collections::BasicHashMap<sprawl::String, BoundFunction> namedNativeFunctions;
+	SkipProbe::HashMap<std::string_view, BoundFunction> namedNativeFunctions;
 }
 
 namespace OceanStatic
@@ -31,7 +33,7 @@ namespace OceanStatic
 
 	static void print(int64_t value)
 	{
-		printf("%ld\n", value);
+		printf("%I64d\n", value);
 	}
 }
 

@@ -1,5 +1,5 @@
 #include "ExpressionMatch.hpp"
-
+#include <sprawl/memory/PoolAllocator.hpp>
 
 typedef sprawl::memory::DynamicPoolAllocator<sizeof(ExpressionMatch)> matchAllocator;
 
@@ -14,7 +14,7 @@ ExpressionMatch::~ExpressionMatch()
 {
 	for(auto& vect : m_matches)
 	{
-		for(auto& subvect : vect.Value())
+		for(auto& subvect : vect.value)
 		{
 			for(auto& item : subvect)
 			{

@@ -17,12 +17,12 @@ public:
 
 	virtual MatchType GetType() const override { return MatchType::Regex; }
 
-	sprawl::StringLiteral Group(size_t index) const;
-	sprawl::StringLiteral Group(sprawl::String const& groupName) const;
+	std::string_view Group(size_t index) const;
+	std::string_view Group(std::string_view const& groupName) const;
 
 	virtual void Print() const override
 	{
-		printf("%.*s", (int)Group(0).GetLength(), Group(0).GetPtr());
+		printf("%.*s", (int)Group(0).length(), Group(0).data());
 	}
 
 	bool GetLiteralValue(BytecodeWriter& writer, OceanValue& outValue) const;

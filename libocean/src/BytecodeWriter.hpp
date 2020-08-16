@@ -1,7 +1,7 @@
 #include <stdint.h>
-#include <sprawl/string/String.hpp>
+#include <string_view>
 #include <list>
-#include <sprawl/collections/HashMap.hpp>
+#include <SkipProbe/SkipProbe.hpp>
 #include "OpCode.hpp"
 #include "LibOcean.hpp"
 
@@ -26,11 +26,11 @@ public:
 
 	BytecodeWriter();
 
-	void StartFunction(sprawl::String const& name);
+	void StartFunction(std::string_view const& name);
 	void EndFunction();
 
 	void Stack_Push(int64_t value);
-	void Stack_Push(sprawl::String const& value);
+	void Stack_Push(std::string_view const& value);
 	void Stack_Push(double value);
 	void Stack_Push(OceanValue value);
 
@@ -45,7 +45,7 @@ public:
 	DeferredJump JumpIf_DeferTarget();
 	DeferredJump JumpIfNot_DeferTarget();
 
-	void Function_Call(sprawl::String const& name);
+	void Function_Call(std::string_view const& name);
 	void Function_Return();
 
 	void Variable_Declare(int64_t stringId);
@@ -53,24 +53,24 @@ public:
 	void Variable_Store(int64_t stringId);
 	void Variable_Memo(int64_t stringId);
 
-	void OceanObj_Create(sprawl::String const& className);
-	void OceanObj_GetAttr(sprawl::String const& attrName);
-	void OceanObj_SetAttr(sprawl::String const& attrName);
+	void OceanObj_Create(std::string_view const& className);
+	void OceanObj_GetAttr(std::string_view const& attrName);
+	void OceanObj_SetAttr(std::string_view const& attrName);
 	void OceanObj_Destroy();
 
 	void Exit(int64_t exitCode);
 
 	Instruction const* GetCurrentInstruction();
-	int64_t GetStringOffset(sprawl::String const& string) const;
+	int64_t GetStringOffset(std::string_view const& string) const;
 
-	sprawl::String Finish();
+	std::string Finish();
 
 private:
 
 	struct ScopeData
 	{
 		ScopeData() : variables(), data(), varCount(0) {}
-		sprawl::collections::BasicHashMap<int64_t, int64_t> variables;
+		SkipProbe::HashMap<int64_t, int64_t> variables;
 		std::list<Instruction> data;
 		int64_t varCount;
 	};
@@ -89,10 +89,10 @@ private:
 #endif
 	
 	std::list<FunctionData> m_functions;
-	mutable std::list<sprawl::String> m_strings;
+	mutable std::list<std::string_view> m_strings;
 	ScopeData m_globalData;
 
-	mutable sprawl::collections::BasicHashMap<sprawl::String, int64_t> m_stringOffsets;
+	mutable SkipProbe::HashMap<std::string_view, int64_t> m_stringOffsets;
 
 	std::list<Instruction>* m_currentBuilder;
 	std::list<std::list<Instruction>*> m_builderStack;
@@ -100,7 +100,7 @@ private:
 	ScopeData* m_currentScope;
 	std::list<ScopeData*> m_scopeStack;
 	
-	sprawl::collections::BasicHashMap<int64_t, int64_t> m_funcParameterCounts;
+	SkipProbe::HashMap<int64_t, int64_t> m_funcParameterCounts;
 };
 
 static_assert(sizeof(int64_t) == sizeof(double), "Double is not 64 bits and is required to be.");

@@ -11,21 +11,21 @@ H2OCompiler::H2OCompiler()
 	// NOP
 }
 
-bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
+bool H2OCompiler::Tokenize(std::string_view const& text, TokenList& tokens)
 {
-	sprawl::StringRef partialMatch("", 0);
+	std::string_view partialMatch("", 0);
 
 	int lineStart = -1;
 	int columnStart = -1;
 	size_t offset = 0;
-	size_t length = text.GetLength();
+	size_t length = text.length();
 	size_t line = 0;
 	size_t column = 0;
 
 	bool matched = false;
-	char const* const ptr = text.GetPtr();
+	char const* const ptr = text.data();
 
-	std::vector<sprawl::StringLiteral> indents;
+	std::vector<std::string_view> indents;
 	size_t indentStartOffset = 0;
 
 	if(m_significantWhitespace)
@@ -47,14 +47,14 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 			}
 			else if(c != '\t' && c != ' ')
 			{
-				Token tok(sprawl::StringLiteral(ptr + offset, 1), line, column);
+				Token tok(std::string_view(ptr + offset, 1), line, column);
 				LogError("Invalid character", TokenList(&tok, 1));
 				return false;
 			}
 			++offset;
 			c = *(ptr + offset);
 		}
-		indents.push_back(sprawl::StringLiteral(ptr + indentStartOffset, offset - indentStartOffset));
+		indents.push_back(std::string_view(ptr + indentStartOffset, offset - indentStartOffset));
 		indentStartOffset = offset;
 	}
 
@@ -84,7 +84,7 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 			}
 			else if(c != '\t' && c != ' ')
 			{
-				Token tok(sprawl::StringLiteral(ptr + offset, 1), line, column);
+				Token tok(std::string_view(ptr + offset, 1), line, column);
 				LogError("Invalid character", TokenList(&tok, 1));
 				return false;
 			}
@@ -95,18 +95,18 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 		if(m_significantWhitespace && doIndentCheck)
 		{
 			doIndentCheck = false;
-			sprawl::StringLiteral lit(ptr + indentStartOffset, offset - indentStartOffset);
+			std::string_view lit(ptr + indentStartOffset, offset - indentStartOffset);
 			indentStartOffset = offset;
-			sprawl::StringLiteral& previousIndent = indents.back();
+			std::string_view& previousIndent = indents.back();
 
-			if(memcmp(previousIndent.GetPtr(), lit.GetPtr(), previousIndent.GetLength() < lit.GetLength() ? previousIndent.GetLength() : lit.GetLength()) != 0)
+			if(memcmp(previousIndent.data(), lit.data(), previousIndent.length() < lit.length() ? previousIndent.length() : lit.length()) != 0)
 			{
 				Token tok(lit, line, 0);
 				LogError("Non-matching indent", TokenList(&tok, 1));
 				return false;
 			}
 
-			if(lit.GetLength() < previousIndent.GetLength())
+			if(lit.length() < previousIndent.length())
 			{
 				indents.pop_back();
 				if(indents.empty())
@@ -115,28 +115,28 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 					LogError("Non-matching indent", TokenList(&tok, 1));
 					return false;
 				}
-				Token tok(sprawl::StringLiteral("\r", 1), line, column);
+				Token tok(std::string_view("\r", 1), line, column);
 				tokens.PushBack(tok);
 			}
-			else if(previousIndent.GetLength() < lit.GetLength())
+			else if(previousIndent.length() < lit.length())
 			{
 				indents.push_back(lit);
-				Token tok(sprawl::StringLiteral("\t", 1), line, column);
+				Token tok(std::string_view("\t", 1), line, column);
 				tokens.PushBack(tok);
 			}
 		}
 
 		for(auto& kvp : m_spans)
 		{
-			auto& span = kvp.Value();
-			int ret = span.Find(sprawl::StringRef(ptr + offset, text.GetLength() - offset));
+			auto& span = *kvp.value;
+			int ret = span.Find(std::string_view(ptr + offset, text.length() - offset));
 			if(ret != -1)
 			{
-				sprawl::StringRef capturedToken(ptr + offset, ret);
+				std::string_view capturedToken(ptr + offset, ret);
 				tokens.PushBack(Token(capturedToken, line, column));
 				for(int i = 0; i < ret; ++i)
 				{
-					if(*(capturedToken.GetPtr() + i) == '\n')
+					if(*(capturedToken.data() + i) == '\n')
 					{
 						++line;
 						column = 0;
@@ -158,15 +158,15 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 		{
 			for(auto& kvp : m_regexSpans)
 			{
-				auto& span = kvp.Value();
-				int ret = span.Find(sprawl::StringRef(ptr + offset, text.GetLength() - offset));
+				auto& span = *kvp.value;
+				int ret = span.Find(std::string_view(ptr + offset, text.length() - offset));
 				if(ret != -1)
 				{
-					sprawl::StringRef capturedToken(ptr + offset, ret);
+					std::string_view capturedToken(ptr + offset, ret);
 					tokens.PushBack(Token(capturedToken, lineStart, columnStart));
 					for(int i = 0; i < ret; ++i)
 					{
-						if(*(capturedToken.GetPtr() + i) == '\n')
+						if(*(capturedToken.data() + i) == '\n')
 						{
 							++line;
 							column = 0;
@@ -197,22 +197,21 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 			columnStart = column;
 		}
 
-		partialMatch = sprawl::StringLiteral(ptr + offset, text.GetLength() - offset);
-		for(auto& kvp : m_expressionLiterals)
+		partialMatch = std::string_view(ptr + offset, text.length() - offset);
+		for(auto& literal : m_expressionLiterals)
 		{
-			auto& literal = kvp.Value();
-			if(literal.length() > partialMatch.GetLength())
+			if(literal.length() > partialMatch.length())
 			{
 				continue;
 			}
-			if(!memcmp(partialMatch.GetPtr(), literal.c_str(), literal.length()))
+			if(!memcmp(partialMatch.data(), literal.data(), literal.length()))
 			{
-				char endChar = *(partialMatch.GetPtr() + literal.length() - 1);
-				char nextChar = *(partialMatch.GetPtr() + literal.length());
+				char endChar = *(partialMatch.data() + literal.length() - 1);
+				char nextChar = *(partialMatch.data() + literal.length());
 				if(!isalnum(endChar) || !isalnum(nextChar))
 				{
 					matched = true;
-					Token token(sprawl::StringLiteral(partialMatch.GetPtr(), literal.length()), lineStart, columnStart);
+					Token token(std::string_view(partialMatch.data(), literal.length()), lineStart, columnStart);
 					tokens.PushBack(token);
 
 					for(int i = 0; i < literal.length(); ++i)
@@ -238,22 +237,22 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 		{
 			for(auto& kvp : m_literals)
 			{
-				auto& literal = kvp.Value();
+				auto& literal = *kvp.value;
 				int ret = literal.Find(partialMatch);
 				if(ret != -1)
 				{
-					char endChar = *(partialMatch.GetPtr() + ret - 1);
-					char nextChar = *(partialMatch.GetPtr() + ret);
+					char endChar = *(partialMatch.data() + ret - 1);
+					char nextChar = *(partialMatch.data() + ret);
 					if(!isalnum(endChar) || !isalnum(nextChar))
 					{
 						matched = true;
-						sprawl::StringLiteral literalMatch(ptr + offset, ret);
+						std::string_view literalMatch(ptr + offset, ret);
 						Token token(literalMatch, lineStart, columnStart);
 						tokens.PushBack(token);
 
 						for(int i = 0; i < ret; ++i)
 						{
-							if(*(literalMatch.GetPtr() + i) == '\n')
+							if(*(literalMatch.data() + i) == '\n')
 							{
 								++line;
 								column = 0;
@@ -280,9 +279,9 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 				++endOffset;
 				c = *(ptr + endOffset);
 			}
-			partialMatch = sprawl::StringLiteral(ptr + offset, endOffset - offset);
+			partialMatch = std::string_view(ptr + offset, endOffset - offset);
 			Token token(partialMatch, lineStart, columnStart);
-			LogError(sprawl::String(sprawl::StringLiteral("Invalid syntax: `{}`")).format(sprawl::String(partialMatch)), TokenList(&token, 1));
+			LogError(std::string("Invalid syntax: `") + std::string(partialMatch) + "`", TokenList(&token, 1));
 			return false;
 		}
 	}
@@ -290,10 +289,10 @@ bool H2OCompiler::Tokenize(sprawl::StringRef const& text, TokenList& tokens)
 	return true;
 }
 
-bool H2OCompiler::Parse(const TokenList& tokens, sprawl::String& output)
+bool H2OCompiler::Parse(const TokenList& tokens, std::string& output)
 {
 	int offset = 0;
-	sprawl::collections::List<Match*> matches;
+	std::list<Match*> matches;
 	while(offset < tokens.Length())
 	{
 		TokenList tokenList = tokens.Slice(offset, tokens.Length());
@@ -304,7 +303,7 @@ bool H2OCompiler::Parse(const TokenList& tokens, sprawl::String& output)
 			if(match)
 			{
 				offset += match->End();
-				matches.PushBack(match);
+				matches.push_back(match);
 				found = true;
 				break;
 			}
@@ -341,7 +340,7 @@ bool H2OCompiler::Parse(const TokenList& tokens, sprawl::String& output)
 			}
 			TokenList errorTokens = tokens.Slice(startOffset, offset-1);
 
-			LogError(sprawl::StringLiteral("Invalid syntax"), errorTokens);
+			LogError("Invalid syntax", errorTokens);
 			return false;
 		}
 	}
@@ -358,113 +357,113 @@ bool H2OCompiler::Parse(const TokenList& tokens, sprawl::String& output)
 	return true;
 }
 
-LiteralItem& H2OCompiler::AddLiteral(const sprawl::String& name, const sprawl::StringLiteral& regex, const LiteralItem::Translator& translator)
+LiteralItem& H2OCompiler::AddLiteral(const std::string_view& name, const std::string_view& regex, const LiteralItem::Translator& translator)
 {
-	auto it = m_literals.insert(name, LiteralItem(name, regex, translator));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_literals.CheckedInsert(name, new LiteralItem(name, regex, translator)).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
-SpanItem& H2OCompiler::AddSpan(const sprawl::String& name, sprawl::StringLiteral const& startLiteral, sprawl::StringLiteral const& endLiteral, const SpanItem::Translator& translator)
+SpanItem& H2OCompiler::AddSpan(const std::string_view& name, std::string_view const& startLiteral, std::string_view const& endLiteral, const SpanItem::Translator& translator)
 {
-	auto it = m_spans.insert(name, SpanItem(name, startLiteral, endLiteral, translator));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_spans.CheckedInsert(name, new SpanItem(name, startLiteral, endLiteral, translator)).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
-RegexSpanItem& H2OCompiler::AddRegexSpan(const sprawl::String& name, sprawl::StringLiteral const& startRegex, sprawl::StringLiteral const& endLiteral, const RegexSpanItem::Translator& translator)
+RegexSpanItem& H2OCompiler::AddRegexSpan(const std::string_view& name, std::string_view const& startRegex, std::string_view const& endLiteral, const RegexSpanItem::Translator& translator)
 {
-	auto it = m_regexSpans.insert(name, RegexSpanItem(name, startRegex, endLiteral, translator));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_regexSpans.CheckedInsert(name, new RegexSpanItem(name, startRegex, endLiteral, translator)).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
-ExpressionItem& H2OCompiler::AddExpression(const sprawl::String& name, std::initializer_list<const char* const> values, const ExpressionItem::Translator& translator)
+ExpressionItem& H2OCompiler::AddExpression(const std::string_view& name, std::initializer_list<const char* const> values, const ExpressionItem::Translator& translator)
 {
 	StringList valueList;
 
 	for(auto value : values)
 	{
-		valueList.PushBack(sprawl::StringLiteral(value, strlen(value)));
+		valueList.PushBack(std::string_view(value, strlen(value)));
 		if(value[0] != '$')
 		{
 			m_expressionLiterals.insert(value);
 		}
 	}
 
-	auto it = m_expressions.insert(name, ExpressionItem(name, std::move(valueList), translator));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_expressions.CheckedInsert(name, new ExpressionItem(name, std::move(valueList), translator)).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
-ExpressionItem& H2OCompiler::AddExpression(const sprawl::String& name, StringList&& valueList, const ExpressionItem::Translator& translator)
+ExpressionItem& H2OCompiler::AddExpression(const std::string_view& name, StringList&& valueList, const ExpressionItem::Translator& translator)
 {
 	for(int i = 0; i < valueList.Length(); ++i)
 	{
-		if(valueList[i].GetPtr()[0] != '$')
+		if(valueList[i].data()[0] != '$')
 		{
 			m_expressionLiterals.insert(valueList[i]);
 		}
 	}
 
-	auto it = m_expressions.insert(name, ExpressionItem(name, std::move(valueList), translator));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_expressions.CheckedInsert(name, new ExpressionItem(name, std::move(valueList), translator)).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
 
-GroupItem& H2OCompiler::AddGroup(const sprawl::String& name, std::initializer_list<const char* const> names)
+GroupItem& H2OCompiler::AddGroup(const std::string_view& name, std::initializer_list<const char* const> names)
 {
-	sprawl::collections::List<sprawl::StringLiteral> nameList;
+	std::list<std::string_view> nameList;
 
 	for(auto name : names)
 	{
-		nameList.PushBack(sprawl::StringLiteral(name, strlen(name)));
+		nameList.push_back(std::string_view(name, strlen(name)));
 	}
 
-	auto it = m_groups.insert(name, GroupItem(name, std::move(nameList)));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_groups.CheckedInsert(name, new GroupItem(name, std::move(nameList))).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
-GroupItem& H2OCompiler::AddGroup(const sprawl::String& name, sprawl::collections::List<sprawl::StringLiteral>&& nameList)
+GroupItem& H2OCompiler::AddGroup(const std::string_view& name, std::list<std::string_view>&& nameList)
 {
-	auto it = m_groups.insert(name, GroupItem(name, std::move(nameList)));
-	m_allItems.insert(name, &it.Value());
-	return it.Value();
+	auto it = m_groups.CheckedInsert(name, new GroupItem(name, std::move(nameList))).iterator;
+	m_allItems.Insert(name, it->value);
+	return *it->value;
 }
 
-void H2OCompiler::AddTopLevelItem(const sprawl::String& itemName)
+void H2OCompiler::AddTopLevelItem(const std::string_view& itemName)
 {
-	m_topLevelItems.PushBack(m_allItems.get(itemName));
+	m_topLevelItems.push_back(m_allItems.Get(itemName));
 }
 
-void H2OCompiler::AddLiteralTranslator(const sprawl::String& name, const LiteralItem::Translator& translator)
+void H2OCompiler::AddLiteralTranslator(const std::string_view& name, const LiteralItem::Translator& translator)
 {
-	m_literalTranslators.insert(name, translator);
+	m_literalTranslators.Insert(name, translator);
 }
 
-void H2OCompiler::AddExpressionTranslator(const sprawl::String& name, const ExpressionItem::Translator& translator)
+void H2OCompiler::AddExpressionTranslator(const std::string_view& name, const ExpressionItem::Translator& translator)
 {
-	m_expressionTranslators.insert(name, translator);
+	m_expressionTranslators.Insert(name, translator);
 }
 
-void H2OCompiler::AddSpanTranslator(const sprawl::String& name, const SpanItem::Translator& translator)
+void H2OCompiler::AddSpanTranslator(const std::string_view& name, const SpanItem::Translator& translator)
 {
-	m_spanTranslators.insert(name, translator);
+	m_spanTranslators.Insert(name, translator);
 }
 
-LiteralItem::Translator H2OCompiler::GetLiteralTranslator(const sprawl::String& name)
+LiteralItem::Translator H2OCompiler::GetLiteralTranslator(const std::string_view& name)
 {
-	return m_literalTranslators.get(name);
+	return m_literalTranslators.Get(name);
 }
 
-ExpressionItem::Translator H2OCompiler::GetExpressionTranslator(const sprawl::String& name)
+ExpressionItem::Translator H2OCompiler::GetExpressionTranslator(const std::string_view& name)
 {
-	return m_expressionTranslators.get(name);
+	return m_expressionTranslators.Get(name);
 }
 
-SpanItem::Translator H2OCompiler::GetSpanTranslator(const sprawl::String& name)
+SpanItem::Translator H2OCompiler::GetSpanTranslator(const std::string_view& name)
 {
-	return m_spanTranslators.get(name);
+	return m_spanTranslators.Get(name);
 }

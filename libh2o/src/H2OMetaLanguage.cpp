@@ -3,11 +3,11 @@
 #include "matches/ExpressionMatch.hpp"
 #include "matches/RegexMatch.hpp"
 #include "matches/StringMatch.hpp"
-#include <sprawl/threading/threadlocal.hpp>
+#include "StringLiteral.hpp"
 
 namespace H2OMetaLanguageStatic
 {
-	static sprawl::threading::ThreadLocal<H2OCompiler*> currentCompiler = nullptr;
+	static thread_local H2OCompiler* currentCompiler = nullptr;
 
 	static bool AddLiteral(BytecodeWriter& /*writer*/, ExpressionMatch const& match)
 	{
@@ -34,11 +34,11 @@ namespace H2OMetaLanguageStatic
 		RegexMatch* identifier = static_cast<RegexMatch*>(match["identifier"][0][0]);
 		ExpressionMatch& groupliteral = static_cast<ExpressionMatch&>(*match["groupliteral"][0][0]);
 
-		sprawl::collections::List<sprawl::StringLiteral> group;
+		std::list<std::string_view> group;
 		for(auto& groupMember : groupliteral["identifier"][0])
 		{
 			RegexMatch& groupMatch = static_cast<RegexMatch&>(*groupMember);
-			group.PushBack(groupMatch.Group(0));
+			group.push_back(groupMatch.Group(0));
 		}
 
 		currentCompiler->AddGroup(identifier->Group(0), std::move(group));
@@ -69,13 +69,13 @@ namespace H2OMetaLanguageStatic
 			{
 				RegexMatch& expressionMatch = static_cast<RegexMatch&>(*expressionComponent);
 				Item& item = expressionMatch.GetBaseItem();
-				if(item.GetName() == sprawl::StringLiteral("indent"))
+				if(item.GetName() == StringLiteral("indent"))
 				{
-					list.PushBack(sprawl::StringLiteral("\t", 1));
+					list.PushBack(std::string_view("\t", 1));
 				}
-				else if(item.GetName() == sprawl::StringLiteral("dedent"))
+				else if(item.GetName() == StringLiteral("dedent"))
 				{
-					list.PushBack(sprawl::StringLiteral("\r", 1));
+					list.PushBack(std::string_view("\r", 1));
 				}
 				else
 				{
@@ -102,31 +102,31 @@ namespace H2OMetaLanguageStatic
 
 		SpanItem::Translator function;
 
-		sprawl::StringLiteral start(nullptr, 0);
-		sprawl::StringLiteral end(nullptr, 0);
-		sprawl::StringLiteral escape(nullptr, 0);
-		sprawl::StringLiteral noNewlines(nullptr, 0);
+		std::string_view start(nullptr, 0);
+		std::string_view end(nullptr, 0);
+		std::string_view escape(nullptr, 0);
+		std::string_view noNewlines(nullptr, 0);
 		auto& commaSpanArg = identifierSpanArgMatch["commaspanarg"][0];
 		for(int i = 0; i < commaSpanArg.size(); ++i)
 		{
 			ExpressionMatch& commaExpression = static_cast<ExpressionMatch&>(*commaSpanArg[i]);
 			ExpressionMatch& spanarg = static_cast<ExpressionMatch&>(*commaExpression["spanargs"][0][0]);
 
-			sprawl::String firstToken(spanarg.Tokens()[0].Text());
+			std::string firstToken(spanarg.Tokens()[0].Text());
 
-			if(firstToken == sprawl::StringLiteral("function"))
+			if(firstToken == StringLiteral("function"))
 			{
 				function = currentCompiler->GetSpanTranslator(static_cast<RegexMatch*>(spanarg["identifier"][0][0])->Group(0));
 			}
-			else if(firstToken == sprawl::StringLiteral("start"))
+			else if(firstToken == StringLiteral("start"))
 			{
 				start = static_cast<StringMatch*>(spanarg["string"][0][0])->GetString();
 			}
-			else if(firstToken == sprawl::StringLiteral("end"))
+			else if(firstToken == StringLiteral("end"))
 			{
 				end = static_cast<StringMatch*>(spanarg["string"][0][0])->GetString();
 			}
-			else if(firstToken == sprawl::StringLiteral("escape"))
+			else if(firstToken == StringLiteral("escape"))
 			{
 				escape = static_cast<StringMatch*>(spanarg["string"][0][0])->GetString();
 			}
@@ -136,19 +136,19 @@ namespace H2OMetaLanguageStatic
 			}
 		}
 
-		if(start.GetLength() == 0 || end.GetLength() == 0)
+		if(start.length() == 0 || end.length() == 0)
 		{
 			return false;
 		}
 
 		auto item = currentCompiler->AddSpan(identifier->Group(0), start, end, function);
 
-		if(escape.GetLength() != 0)
+		if(escape.length() != 0)
 		{
 			item.Escape(escape);
 		}
 
-		if(noNewlines.GetLength() != 0 && noNewlines.GetPtr()[0] == 't')
+		if(noNewlines.length() != 0 && noNewlines.data()[0] == 't')
 		{
 			item.RestrictNewlines();
 		}
@@ -163,31 +163,31 @@ namespace H2OMetaLanguageStatic
 
 		RegexSpanItem::Translator function;
 
-		sprawl::StringLiteral start(nullptr, 0);
-		sprawl::StringLiteral end(nullptr, 0);
-		sprawl::StringLiteral escape(nullptr, 0);
-		sprawl::StringLiteral noNewlines(nullptr, 0);
+		std::string_view start(nullptr, 0);
+		std::string_view end(nullptr, 0);
+		std::string_view escape(nullptr, 0);
+		std::string_view noNewlines(nullptr, 0);
 		auto& commaSpanArg = identifierSpanArgMatch["commaspanarg"][0];
 		for(int i = 0; i < commaSpanArg.size(); ++i)
 		{
 			ExpressionMatch& commaExpression = static_cast<ExpressionMatch&>(*commaSpanArg[i]);
 			ExpressionMatch& spanarg = static_cast<ExpressionMatch&>(*commaExpression["spanargs"][0][0]);
 
-			sprawl::String firstToken(spanarg.Tokens()[0].Text());
+			std::string_view const& firstToken = spanarg.Tokens()[0].Text();
 
-			if(firstToken == sprawl::StringLiteral("function"))
+			if(firstToken == StringLiteral("function"))
 			{
 				function = currentCompiler->GetSpanTranslator(static_cast<RegexMatch*>(spanarg["identifier"][0][0])->Group(0));
 			}
-			else if(firstToken == sprawl::StringLiteral("start"))
+			else if(firstToken == StringLiteral("start"))
 			{
 				start = static_cast<StringMatch*>(spanarg["string"][0][0])->GetString();
 			}
-			else if(firstToken == sprawl::StringLiteral("end"))
+			else if(firstToken == StringLiteral("end"))
 			{
 				end = static_cast<StringMatch*>(spanarg["string"][0][0])->GetString();
 			}
-			else if(firstToken == sprawl::StringLiteral("escape"))
+			else if(firstToken == StringLiteral("escape"))
 			{
 				escape = static_cast<StringMatch*>(spanarg["string"][0][0])->GetString();
 			}
@@ -197,19 +197,19 @@ namespace H2OMetaLanguageStatic
 			}
 		}
 
-		if(start.GetLength() == 0 || end.GetLength() == 0)
+		if(start.length() == 0 || end.length() == 0)
 		{
 			return false;
 		}
 
 		auto item = currentCompiler->AddRegexSpan(identifier->Group(0), start, end, function);
 
-		if(escape.GetLength() != 0)
+		if(escape.length() != 0)
 		{
 			item.Escape(escape);
 		}
 
-		if(noNewlines.GetLength() != 0 && noNewlines.GetPtr()[0] == 't')
+		if(noNewlines.length() != 0 && noNewlines.data()[0] == 't')
 		{
 			item.RestrictNewlines();
 		}
@@ -298,13 +298,13 @@ bool ProcessH2OFile(char const* data, long dataSize, H2OCompiler& compilerToCrea
 	compiler.AddTopLevelItem("EnableSignificantWhitespace");
 
 	TokenList tokens;
-	if(!compiler.Tokenize(sprawl::StringLiteral(data, dataSize), tokens))
+	if(!compiler.Tokenize(std::string_view(data, dataSize), tokens))
 	{
 		currentCompiler = nullptr;
 		return false;
 	}
 
-	sprawl::String ignoredOutput;
+	std::string ignoredOutput;
 	if(!compiler.Parse(tokens, ignoredOutput))
 	{
 		currentCompiler = nullptr;

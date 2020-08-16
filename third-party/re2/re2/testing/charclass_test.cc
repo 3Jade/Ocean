@@ -4,7 +4,10 @@
 
 // Test character class manipulations.
 
+#include <stdio.h>
+
 #include "util/test.h"
+#include "util/utf.h"
 #include "re2/regexp.h"
 
 namespace re2 {
@@ -194,7 +197,7 @@ bool CorrectCC(CharClass *cc, CCTest *t, const char *desc) {
 
 TEST(TestCharClassBuilder, Adds) {
   int nfail = 0;
-  for (int i = 0; i < arraysize(tests); i++) {
+  for (size_t i = 0; i < arraysize(tests); i++) {
     CharClassBuilder ccb;
     CCTest* t = &tests[i];
     for (int j = 0; t->add[j].lo >= 0; j++)
